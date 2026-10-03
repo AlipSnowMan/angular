@@ -195,6 +195,7 @@ export enum ErrorCode {
   CONFIG_EXTENDED_DIAGNOSTICS_IMPLIES_STRICT_TEMPLATES = 4003,
   CONFIG_EXTENDED_DIAGNOSTICS_UNKNOWN_CATEGORY_LABEL = 4004,
   CONFIG_EXTENDED_DIAGNOSTICS_UNKNOWN_CHECK = 4005,
+  CONFIG_EMIT_DECLARATION_ONLY_UNSUPPORTED = 4006,
 
   /**
    * Raised when a host expression has a parse error, such as a host listener or host binding
@@ -594,6 +595,37 @@ export enum ErrorCode {
    * A structural directive is used in a template, but the directive is not imported.
    */
   MISSING_STRUCTURAL_DIRECTIVE = 8116,
+
+  /**
+   * A function in a text interpolation is not invoked.
+   *
+   * For example:
+   * ```html
+   * <p> {{ firstName }} </p>
+   * ```
+   *
+   * The `firstName` function is not invoked. Instead, it should be:
+   * ```html
+   * <p> {{ firstName() }} </p>
+   * ```
+   */
+  UNINVOKED_FUNCTION_IN_TEXT_INTERPOLATION = 8117,
+
+  /**
+   * A required initializer is being invoked in a forbidden context such as a property initializer
+   * or a constructor.
+   *
+   * For example:
+   * ```ts
+   * class MyComponent {
+   *  myInput = input.required();
+   *  somValue = this.myInput(); // Error
+   *
+   *  constructor() {
+   *    this.myInput(); // Error
+   *  }
+   */
+  FORBIDDEN_REQUIRED_INITIALIZER_INVOCATION = 8118,
 
   /**
    * The template type-checking engine would need to generate an inline type check block for a

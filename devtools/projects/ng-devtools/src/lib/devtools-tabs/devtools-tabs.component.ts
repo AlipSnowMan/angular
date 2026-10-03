@@ -6,7 +6,15 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, computed, inject, input, output, signal} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {MatIcon} from '@angular/material/icon';
 import {MatMenu, MatMenuItem, MatMenuTrigger} from '@angular/material/menu';
 import {MatSlideToggle} from '@angular/material/slide-toggle';
@@ -19,7 +27,6 @@ import {
   Route,
   SerializedInjector,
   SerializedProviderRecord,
-  SupportedApis,
 } from '../../../../protocol';
 
 import {ApplicationEnvironment, Frame, TOP_LEVEL_FRAME_ID} from '../application-environment/index';
@@ -30,9 +37,12 @@ import {DirectiveExplorerComponent} from './directive-explorer/directive-explore
 import {InjectorTreeComponent} from './injector-tree/injector-tree.component';
 import {ProfilerComponent} from './profiler/profiler.component';
 import {RouterTreeComponent} from './router-tree/router-tree.component';
+import {TransferStateComponent} from './transfer-state/transfer-state.component';
 import {TabUpdate} from './tab-update/index';
+import {Settings} from '../application-services/settings';
+import {SUPPORTED_APIS} from '../application-providers/supported_apis';
 
-type Tab = 'Components' | 'Profiler' | 'Router Tree' | 'Injector Tree';
+type Tab = 'Components' | 'Profiler' | 'Router Tree' | 'Injector Tree' | 'Transfer State';
 
 @Component({
   selector: 'ng-devtools-tabs',
@@ -51,29 +61,36 @@ type Tab = 'Components' | 'Profiler' | 'Router Tree' | 'Injector Tree';
     ProfilerComponent,
     RouterTreeComponent,
     InjectorTreeComponent,
+    TransferStateComponent,
     MatSlideToggle,
   ],
   providers: [TabUpdate],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DevToolsTabsComponent {
+  readonly frameManager = inject(FrameManager);
+  readonly themeService = inject(ThemeService);
+  private readonly tabUpdate = inject(TabUpdate);
+  private readonly messageBus = inject<MessageBus<Events>>(MessageBus);
+  private readonly settings = inject(Settings);
+  protected readonly applicationEnvironment = inject(ApplicationEnvironment);
+  protected readonly supportedApis = inject(SUPPORTED_APIS);
+
   readonly isHydrationEnabled = input(false);
-  readonly supportedApis = input.required<SupportedApis>();
   readonly frameSelected = output<Frame>();
 
-  readonly applicationEnvironment = inject(ApplicationEnvironment);
-  readonly activeTab = signal<Tab>('Components');
   readonly inspectorRunning = signal(false);
-  readonly showCommentNodes = signal(false);
-  readonly routerGraphEnabled = signal(false);
-  readonly timingAPIEnabled = signal(false);
-  readonly signalGraphEnabled = signal(false);
+
+  protected readonly showCommentNodes = this.settings.showCommentNodes;
+  protected readonly routerGraphEnabled = this.settings.routerGraphEnabled;
+  protected readonly timingAPIEnabled = this.settings.timingAPIEnabled;
+  protected readonly signalGraphEnabled = this.settings.signalGraphEnabled;
+  protected readonly transferStateEnabled = this.settings.transferStateEnabled;
+  protected readonly activeTab = this.settings.activeTab;
 
   readonly componentExplorerView = signal<ComponentExplorerView | null>(null);
   readonly providers = signal<SerializedProviderRecord[]>([]);
   readonly routes = signal<Route[]>([]);
-  readonly frameManager = inject(FrameManager);
-
-  readonly snapToRoot = signal(false);
 
   readonly tabs = computed<Tab[]>(() => {
     const supportedApis = this.supportedApis();
@@ -85,8 +102,11 @@ export class DevToolsTabsComponent {
     if (supportedApis.dependencyInjection) {
       tabs.push('Injector Tree');
     }
-    if (supportedApis.routes && this.routerGraphEnabled() && this.routes().length > 0) {
+    if (this.routerGraphEnabled() && this.routes().length > 0) {
       tabs.push('Router Tree');
+    }
+    if (supportedApis.transferState && this.transferStateEnabled()) {
+      tabs.push('Transfer State');
     }
 
     return tabs;
@@ -106,29 +126,25 @@ export class DevToolsTabsComponent {
     return parseInt(version.toString().split('.')[0], 10);
   });
 
-  readonly extensionVersion = signal('Development Build');
-
-  public tabUpdate = inject(TabUpdate);
-  public themeService = inject(ThemeService);
-  private _messageBus = inject<MessageBus<Events>>(MessageBus);
+  readonly extensionVersion = signal('dev-build');
 
   constructor() {
-    this._messageBus.on('updateRouterTree', (routes: any[]) => {
+    this.messageBus.on('updateRouterTree', (routes: any[]) => {
       this.routes.set(routes || []);
     });
 
     // Change the tab to Components, if an element is selected via the inspector.
-    this._messageBus.on('selectComponent', () => {
+    this.messageBus.on('selectComponent', () => {
       if (this.activeTab() !== 'Components') {
         this.changeTab('Components');
       }
     });
 
-    this._messageBus.on('latestComponentExplorerView', (view: ComponentExplorerView) => {
+    this.messageBus.on('latestComponentExplorerView', (view: ComponentExplorerView) => {
       this.componentExplorerView.set(view);
     });
 
-    this._messageBus.on(
+    this.messageBus.on(
       'latestInjectorProviders',
       (_: SerializedInjector, providers: SerializedProviderRecord[]) => {
         this.providers.set(providers);
@@ -150,8 +166,7 @@ export class DevToolsTabsComponent {
     this.activeTab.set(tab);
     this.tabUpdate.notify(tab);
     if (tab === 'Router Tree') {
-      this._messageBus.emit('getRoutes');
-      this.snapToRoot.set(true);
+      this.messageBus.emit('getRoutes');
     }
   }
 
@@ -162,10 +177,10 @@ export class DevToolsTabsComponent {
 
   emitInspectorEvent(): void {
     if (this.inspectorRunning()) {
-      this._messageBus.emit('inspectorStart');
+      this.messageBus.emit('inspectorStart');
     } else {
-      this._messageBus.emit('inspectorEnd');
-      this._messageBus.emit('removeHighlightOverlay');
+      this.messageBus.emit('inspectorEnd');
+      this.messageBus.emit('removeHighlightOverlay');
     }
   }
 
@@ -176,8 +191,8 @@ export class DevToolsTabsComponent {
   toggleTimingAPI(): void {
     this.timingAPIEnabled.update((state) => !state);
     this.timingAPIEnabled()
-      ? this._messageBus.emit('enableTimingAPI')
-      : this._messageBus.emit('disableTimingAPI');
+      ? this.messageBus.emit('enableTimingAPI')
+      : this.messageBus.emit('disableTimingAPI');
   }
 
   protected setRouterGraph(enabled: boolean): void {
@@ -189,5 +204,12 @@ export class DevToolsTabsComponent {
 
   protected setSignalGraph(enabled: boolean): void {
     this.signalGraphEnabled.set(enabled);
+  }
+
+  protected setTransferStateTab(enabled: boolean): void {
+    this.transferStateEnabled.set(enabled);
+    if (!enabled && this.activeTab() === 'Transfer State') {
+      this.activeTab.set('Components');
+    }
   }
 }

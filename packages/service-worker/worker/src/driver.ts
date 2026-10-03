@@ -70,6 +70,20 @@ interface PushSubscriptionChangeEvent extends ExtendableEvent {
   newSubscription: PushSubscription | null;
 }
 
+/**
+ * Determines if a given URL scope corresponds to localhost.
+ *
+ * @param scope The service worker registration scope URL to test
+ * @returns true if the scope is considered localhost, false otherwise
+ */
+export function isLocalhost(scope: string): boolean {
+  // Use non-capturing groups and ensure localhost is at word boundary
+  // This prevents matching domains like "mylocalhost.com" while allowing valid localhost URLs
+  return /(?:^https?:\/\/)?(?:(?:^|[^\w.])localhost|\[::1\]|127(?:\.\d{1,3}){3})(?::\d+)?(?:\/.*)?$/.test(
+    scope,
+  );
+}
+
 export enum DriverReadyState {
   // The SW is operating in a normal mode, responding to all traffic.
   NORMAL,
@@ -189,8 +203,9 @@ export class Driver implements Debuggable, UpdateSource {
       }
     });
 
-    // Handle the fetch, message, and push, notificationclick,
-    // notificationclose and pushsubscriptionchange events.
+    // Handle the fetch, message, push, notificationclick,
+    // notificationclose, pushsubscriptionchange, messageerror, rejectionhandled,
+    // and unhandledrejection events.
     this.scope.addEventListener('fetch', (event) => this.onFetch(event!));
     this.scope.addEventListener('message', (event) => this.onMessage(event!));
     this.scope.addEventListener('push', (event) => this.onPush(event!));
@@ -201,6 +216,8 @@ export class Driver implements Debuggable, UpdateSource {
       // based on the incorrect assumption that browsers don't support it.
       this.onPushSubscriptionChange(event as PushSubscriptionChangeEvent),
     );
+    this.scope.addEventListener('messageerror', (event) => this.onMessageError(event));
+    this.scope.addEventListener('unhandledrejection', (event) => this.onUnhandledRejection(event));
 
     // The debugger generates debug pages in response to debugging requests.
     this.debugger = new DebugHandler(this, this.adapter);
@@ -221,12 +238,6 @@ export class Driver implements Debuggable, UpdateSource {
     const requestUrlObj = this.adapter.parseUrl(req.url, scopeUrl);
 
     if (req.headers.has('ngsw-bypass') || /[?&]ngsw-bypass(?:[=&]|$)/i.test(requestUrlObj.search)) {
-      return;
-    }
-
-    // Calls range request handler
-    if (req.headers.has('range')) {
-      event.respondWith(this.handleRangeRequest(req));
       return;
     }
 
@@ -281,63 +292,6 @@ export class Driver implements Debuggable, UpdateSource {
     // fail (and result in `state` being set to `SAFE_MODE`), but even in that case the
     // SW will still deliver a response.
     event.respondWith(this.handleFetch(event));
-  }
-
-  // function to handle Range requests
-  private async handleRangeRequest(req: Request): Promise<Response> {
-    try {
-      const response = await fetch(req);
-      const contentType = response.headers.get('Content-Type');
-
-      // Only apply logic to content that is a video
-      if (!contentType || !contentType.startsWith('video/')) {
-        return response;
-      }
-
-      const rangeHeader = req.headers.get('range');
-      if (!rangeHeader) {
-        return new Response(null, {
-          status: 416,
-          statusText: 'Range Not Satisfiable',
-        });
-      }
-
-      const rangeMatch = /bytes=(\d+)-(\d+)?/.exec(rangeHeader);
-      if (!rangeMatch) {
-        return new Response(null, {
-          status: 416,
-          statusText: 'Range Not Satisfiable',
-        });
-      }
-
-      const start = Number(rangeMatch[1]);
-      const end = rangeMatch[2] ? Number(rangeMatch[2]) : undefined;
-
-      const buffer = await response.arrayBuffer();
-      const contentLength = buffer.byteLength;
-
-      const chunk = buffer.slice(start, end ? end + 1 : contentLength);
-      const chunkLength = chunk.byteLength;
-
-      const headers = new Headers(response.headers);
-      headers.set(
-        'Content-Range',
-        `bytes ${start}-${end ? end : contentLength - 1}/${contentLength}`,
-      );
-      headers.set('Content-Length', chunkLength.toString());
-      headers.set('Accept-Ranges', 'bytes');
-
-      return new Response(chunk, {
-        status: 206,
-        statusText: 'Partial Content',
-        headers: headers,
-      });
-    } catch (error) {
-      return new Response(null, {
-        status: 500,
-        statusText: 'Internal Server Error',
-      });
-    }
   }
 
   /**
@@ -399,6 +353,24 @@ export class Driver implements Debuggable, UpdateSource {
   private onPushSubscriptionChange(event: PushSubscriptionChangeEvent): void {
     // Handle the pushsubscriptionchange event and keep the SW alive until it's handled.
     event.waitUntil(this.handlePushSubscriptionChange(event));
+  }
+
+  private onMessageError(event: MessageEvent): void {
+    // Handle message deserialization errors that occur when receiving messages
+    // that cannot be deserialized, typically due to corrupted data or unsupported formats.
+    this.debugger.log(
+      `Message error occurred - data could not be deserialized`,
+      `Driver.onMessageError(origin: ${event.origin})`,
+    );
+  }
+
+  private onUnhandledRejection(event: PromiseRejectionEvent): void {
+    // Handle unhandled promise rejections in the service worker.
+    // This is for debugging and preventing silent failures.
+    this.debugger.log(
+      `Unhandled promise rejection occurred`,
+      `Driver.onUnhandledRejection(reason: ${event.reason})`,
+    );
   }
 
   private async ensureInitialized(event: ExtendableEvent): Promise<void> {
@@ -994,10 +966,11 @@ export class Driver implements Debuggable, UpdateSource {
         await this.versionFailed(appVersion, err);
       }
     };
-    // TODO: better logic for detecting localhost.
-    if (this.scope.registration.scope.indexOf('://localhost') > -1) {
+
+    if (isLocalhost(this.scope.registration.scope)) {
       return initialize();
     }
+
     this.idle.schedule(`initialization(${appVersion.manifestHash})`, initialize);
   }
 
@@ -1019,7 +992,8 @@ export class Driver implements Debuggable, UpdateSource {
     // Therefore, we keep clients on their current version (even if broken) and ensure that no new
     // clients will be assigned to it.
 
-    // TODO: notify affected apps.
+    // Notify clients that are using this broken version about the failure.
+    await this.notifyClientsAboutVersionFailure(brokenHash, err);
 
     // The action taken depends on whether the broken manifest is the active (latest) or not.
     // - If the broken version is not the latest, no further action is necessary, since new clients
@@ -1357,6 +1331,29 @@ export class Driver implements Debuggable, UpdateSource {
         };
 
         client.postMessage(notice);
+      }),
+    );
+  }
+
+  async notifyClientsAboutVersionFailure(brokenHash: string, error: Error): Promise<void> {
+    await this.initialized;
+
+    // Find all clients using the broken version
+    const affectedClients = Array.from(this.clientVersionMap.entries())
+      .filter(([clientId, hash]) => hash === brokenHash)
+      .map(([clientId]) => clientId);
+
+    await Promise.all(
+      affectedClients.map(async (clientId) => {
+        const client = await this.scope.clients.get(clientId);
+        if (client) {
+          const brokenVersion = this.versions.get(brokenHash);
+          client.postMessage({
+            type: 'VERSION_FAILED',
+            version: this.mergeHashWithAppData(brokenVersion!.manifest, brokenHash),
+            error: errorToString(error),
+          });
+        }
       }),
     );
   }

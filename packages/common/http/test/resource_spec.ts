@@ -15,6 +15,7 @@ import {
   httpResource,
   HttpContext,
   HttpContextToken,
+  HttpResourceRef,
 } from '../index';
 import {HttpTestingController, provideHttpClientTesting} from '../testing';
 
@@ -111,6 +112,8 @@ describe('httpResource', () => {
         mode: 'cors',
         redirect: 'follow',
         credentials: 'include',
+        integrity: 'sha256-abc123',
+        referrer: 'https://example.com',
       }),
       {injector: TestBed.inject(Injector)},
     );
@@ -126,6 +129,8 @@ describe('httpResource', () => {
     expect(req.request.mode).toBe('cors');
     expect(req.request.redirect).toBe('follow');
     expect(req.request.credentials).toBe('include');
+    expect(req.request.integrity).toBe('sha256-abc123');
+    expect(req.request.referrer).toBe('https://example.com');
 
     req.flush([]);
 
@@ -318,5 +323,65 @@ describe('httpResource', () => {
     TestBed.tick();
     req = backend.expectOne('/data');
     req.flush([]);
+  });
+
+  it('should reset past request data when using set()', async () => {
+    const backend = TestBed.inject(HttpTestingController);
+    const res = httpResource(() => '/data', {injector: TestBed.inject(Injector)});
+    TestBed.tick();
+    const req = backend.expectOne('/data');
+    req.flush([]);
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    res.set([]);
+
+    expect(res.headers()).toBe(undefined);
+    expect(res.progress()).toBe(undefined);
+    expect(res.statusCode()).toBe(undefined);
+  });
+
+  describe('types', () => {
+    it('should narrow hasValue() when the value can be undefined', () => {
+      const result: HttpResourceRef<number | undefined> = httpResource(() => '/data', {
+        injector: TestBed.inject(Injector),
+        parse: () => 0,
+      });
+
+      if (result.hasValue()) {
+        const _value: number = result.value();
+      } else if (result.isLoading()) {
+        // @ts-expect-error
+        const _value: number = result.value();
+      } else if (result.error()) {
+      }
+    });
+
+    it('should not narrow hasValue() when a default value is provided', () => {
+      const result: HttpResourceRef<number> = httpResource(() => '/data', {
+        injector: TestBed.inject(Injector),
+        parse: () => 0,
+        defaultValue: 0,
+      });
+
+      if (result.hasValue()) {
+        const _value: number = result.value();
+      } else if (result.isLoading()) {
+        const _value: number = result.value();
+      } else if (result.error()) {
+      }
+    });
+
+    it('should not narrow hasValue() when the resource type is unknown', () => {
+      const result: HttpResourceRef<unknown> = httpResource(() => '/data', {
+        injector: TestBed.inject(Injector),
+      });
+
+      if (result.hasValue()) {
+        const _value: unknown = result.value();
+      } else if (result.isLoading()) {
+        const _value: unknown = result.value();
+      } else if (result.error()) {
+      }
+    });
   });
 });

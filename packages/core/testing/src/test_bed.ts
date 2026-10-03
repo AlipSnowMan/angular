@@ -38,11 +38,14 @@ import {
   ɵsetUnknownPropertyStrictMode as setUnknownPropertyStrictMode,
   ɵstringify as stringify,
   Type,
+  ɵinferTagNameFromDefinition as inferTagNameFromDefinition,
+  ɵgetComponentDef as getComponentDef,
 } from '../../src/core';
 
 import {ComponentFixture} from './component_fixture';
 import {MetadataOverride} from './metadata_override';
 import {
+  ANIMATIONS_ENABLED_DEFAULT,
   ComponentFixtureNoNgZone,
   DEFER_BLOCK_DEFAULT_BEHAVIOR,
   ModuleTeardownOptions,
@@ -72,6 +75,12 @@ export interface TestBedStatic extends TestBed {
 export interface TestComponentOptions {
   /** Bindings to apply to the test component. */
   bindings?: Binding[];
+
+  /**
+   * Whether to infer the tag name of the test component from its selector.
+   * Otherwise `div` will be used as its tag name.
+   */
+  inferTagName?: boolean;
 }
 
 /**
@@ -233,6 +242,11 @@ export class TestBedImpl implements TestBed {
   private _instanceDeferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
 
   /**
+   * Animations behavior option that specifies whether animations are enabled or disabled.
+   */
+  private _instanceAnimationsEnabled = ANIMATIONS_ENABLED_DEFAULT;
+
+  /**
    * "Error on unknown elements" option that has been configured at the `TestBed` instance level.
    * This option takes precedence over the environment-level one.
    */
@@ -255,6 +269,11 @@ export class TestBedImpl implements TestBed {
    * allowing to restore it in the reset testing module logic.
    */
   private _previousErrorOnUnknownPropertiesOption: boolean | undefined;
+
+  /**
+   * Stores the value for `inferTagName` from the testing module.
+   */
+  private _instanceInferTagName: boolean | undefined;
 
   /**
    * Initialize the environment for testing with a compiler factory, a PlatformRef, and an
@@ -520,7 +539,9 @@ export class TestBedImpl implements TestBed {
         this._instanceTeardownOptions = undefined;
         this._instanceErrorOnUnknownElementsOption = undefined;
         this._instanceErrorOnUnknownPropertiesOption = undefined;
+        this._instanceInferTagName = undefined;
         this._instanceDeferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
+        this._instanceAnimationsEnabled = ANIMATIONS_ENABLED_DEFAULT;
       }
     }
     return this;
@@ -551,7 +572,9 @@ export class TestBedImpl implements TestBed {
     this._instanceTeardownOptions = moduleDef.teardown;
     this._instanceErrorOnUnknownElementsOption = moduleDef.errorOnUnknownElements;
     this._instanceErrorOnUnknownPropertiesOption = moduleDef.errorOnUnknownProperties;
+    this._instanceInferTagName = moduleDef.inferTagName;
     this._instanceDeferBlockBehavior = moduleDef.deferBlockBehavior ?? DEFER_BLOCK_DEFAULT_BEHAVIOR;
+    this._instanceAnimationsEnabled = moduleDef.animationsEnabled ?? ANIMATIONS_ENABLED_DEFAULT;
     // Store the current value of the strict mode option,
     // so we can restore it later
     this._previousErrorOnUnknownElementsOption = getUnknownElementStrictMode();
@@ -645,10 +668,6 @@ export class TestBedImpl implements TestBed {
   }
 
   createComponent<T>(type: Type<T>, options?: TestComponentOptions): ComponentFixture<T> {
-    const testComponentRenderer = this.inject(TestComponentRenderer);
-    const rootElId = `root${_nextRootElementId++}`;
-    testComponentRenderer.insertRootElement(rootElId);
-
     if (getAsyncClassMetadataFn(type)) {
       throw new Error(
         `Component '${type.name}' has unresolved metadata. ` +
@@ -656,11 +675,20 @@ export class TestBedImpl implements TestBed {
       );
     }
 
-    const componentDef = (type as any).ɵcmp;
+    // Note: injecting the renderer before accessing the definition appears to be load-bearing.
+    const testComponentRenderer = this.inject(TestComponentRenderer);
+    const shouldInferTagName = options?.inferTagName ?? this._instanceInferTagName ?? false;
+    const componentDef = getComponentDef(type);
+    const rootElId = `root${_nextRootElementId++}`;
 
     if (!componentDef) {
       throw new Error(`It looks like '${stringify(type)}' has not been compiled.`);
     }
+
+    testComponentRenderer.insertRootElement(
+      rootElId,
+      shouldInferTagName ? inferTagNameFromDefinition(componentDef) : undefined,
+    );
 
     const componentFactory = new ComponentFactory(componentDef);
     const initComponent = () => {
@@ -801,6 +829,10 @@ export class TestBedImpl implements TestBed {
 
   getDeferBlockBehavior(): DeferBlockBehavior {
     return this._instanceDeferBlockBehavior;
+  }
+
+  getAnimationsEnabled(): boolean {
+    return this._instanceAnimationsEnabled;
   }
 
   tearDownTestingModule() {

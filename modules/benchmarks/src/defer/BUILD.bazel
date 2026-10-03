@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "ng_project", "ts_project")
+load("//tools:defaults.bzl", "ng_project", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,8 +10,8 @@ ng_project(
     ],
     tsconfig = "//modules/benchmarks:tsconfig_build",
     deps = [
-        "//modules/benchmarks/src:util_lib_rjs",
-        "//packages/core:core_rjs",
+        "//modules/benchmarks/src:util_lib",
+        "//packages/core",
     ],
 )
 
@@ -21,8 +21,8 @@ ts_project(
     srcs = ["defer.perf-spec.ts"],
     tsconfig = "//modules/benchmarks:tsconfig_e2e",
     deps = [
-        "//:node_modules/protractor",
-        "//modules/utilities:utilities_rjs",
+        "//modules:node_modules/protractor",
+        "//modules/utilities",
     ],
 )
 
@@ -32,7 +32,7 @@ ts_project(
     srcs = ["defer.e2e-spec.ts"],
     tsconfig = "//modules/benchmarks:tsconfig_e2e",
     deps = [
-        "//:node_modules/protractor",
-        "//modules/utilities:utilities_rjs",
+        "//modules:node_modules/protractor",
+        "//modules/utilities",
     ],
 )

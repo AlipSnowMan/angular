@@ -15,7 +15,6 @@ import {
   ElementRef,
   inject,
   input,
-  NgZone,
   OnDestroy,
   viewChild,
 } from '@angular/core';
@@ -23,7 +22,7 @@ import {ProfilerFrame} from '../../../../../../../../protocol';
 import {Subject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
 
-import {render} from '../../../../../vendor/webtreemap/treemap';
+import {render} from 'webtreemap/build/treemap';
 import {TreeMapFormatter, TreeMapNode} from '../../record-formatter/tree-map-formatter';
 
 @Component({
@@ -37,14 +36,10 @@ export class TreeMapVisualizerComponent implements OnDestroy {
 
   readonly frame = input.required<ProfilerFrame>();
 
-  private _ngZone = inject(NgZone);
-
   private resize$ = new Subject<void>();
   private _throttledResizeSubscription!: Subscription;
 
-  private _resizeObserver: ResizeObserver = new ResizeObserver(() =>
-    this._ngZone.run(() => this.resize$.next()),
-  );
+  private _resizeObserver: ResizeObserver = new ResizeObserver(() => this.resize$.next());
   private readonly treeMapRecords = computed<TreeMapNode>(() => {
     // first element in data is the Application node
     return this._formatter.formatFrame(this.frame());

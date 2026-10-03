@@ -1,5 +1,5 @@
-load("//tools:defaults.bzl", "esbuild")
-load("//tools:defaults2.bzl", "jasmine_test", "ts_project")
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+load("//tools:defaults.bzl", "jasmine_test", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -27,7 +27,11 @@ esbuild(
     output = "ng_add_bundle.cjs",
     platform = "node",
     target = "node20",
-    deps = [":ng-add"],
+    tsconfig = "//packages:tsconfig_build",
+    deps = [
+        ":ng-add",
+        "//packages:tsconfig_build",
+    ],
 )
 
 filegroup(
@@ -46,7 +50,6 @@ ts_project(
     ],
     deps = [
         "//:node_modules/@angular-devkit/schematics",
-        "//:node_modules/@bazel/runfiles",
         "//:node_modules/typescript",
     ],
 )
@@ -55,8 +58,8 @@ jasmine_test(
     name = "test",
     data = [
         ":assets",
-        ":ng-add_rjs",
-        ":test_lib_rjs",
+        ":ng-add",
+        ":test_lib",
         "//packages/localize/schematics:collection_json",
     ],
 )

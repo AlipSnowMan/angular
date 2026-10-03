@@ -28,6 +28,7 @@ export {
   consumerDestroy,
   consumerMarkDirty,
   consumerPollProducersForChange,
+  finalizeConsumerAfterComputation,
   getActiveConsumer,
   isInNotificationPhase,
   isReactive,
@@ -37,6 +38,7 @@ export {
   producerNotifyConsumers,
   producerUpdateValueVersion,
   producerUpdatesAllowed,
+  resetConsumerBeforeComputation,
   runPostProducerCreatedFn,
   setActiveConsumer,
   setPostProducerCreatedFn,
@@ -55,3 +57,4 @@ export {
 export {Watch, WatchCleanupFn, WatchCleanupRegisterFn, createWatch} from './src/watch';
 export {setAlternateWeakRefImpl} from './src/weak_ref';
 export {untracked} from './src/untracked';
+export {runEffect, BASE_EFFECT_NODE, BaseEffectNode} from './src/effect';

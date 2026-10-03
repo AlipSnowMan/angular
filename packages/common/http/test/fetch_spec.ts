@@ -213,6 +213,15 @@ describe('FetchBackend', async () => {
     expect(res.error.data).toBe('some data');
   });
 
+  it('handles a text error response when a json success response was expected', async () => {
+    const promise = trackEvents(backend.handle(TEST_POST.clone({responseType: 'json'})));
+    fetchMock.mockFlush(HttpStatusCode.InternalServerError, 'Error', 'simple text error');
+    const events = await promise;
+    expect(events.length).toBe(2);
+    const res = events[1] as any as HttpErrorResponse;
+    expect(res.error).toBe('simple text error');
+  });
+
   it('handles a json error response with XSSI prefix', async () => {
     const promise = trackEvents(backend.handle(TEST_POST.clone({responseType: 'json'})));
     fetchMock.mockFlush(
@@ -224,6 +233,19 @@ describe('FetchBackend', async () => {
     expect(events.length).toBe(2);
     const res = events[1] as any as HttpErrorResponse;
     expect(res.error.data).toBe('some data');
+  });
+
+  it('handles a text error response with XSSI prefix when a json success response was expected', async () => {
+    const promise = trackEvents(backend.handle(TEST_POST.clone({responseType: 'json'})));
+    fetchMock.mockFlush(
+      HttpStatusCode.InternalServerError,
+      'Error',
+      XSSI_PREFIX + 'simple text error',
+    );
+    const events = await promise;
+    expect(events.length).toBe(2);
+    const res = events[1] as any as HttpErrorResponse;
+    expect(res.error).toBe('simple text error');
   });
 
   it('handles a json string response', async () => {
@@ -388,6 +410,34 @@ describe('FetchBackend', async () => {
     fetchMock.mockFlush(HttpStatusCode.Ok, 'OK');
   });
 
+  it('should pass referrer option to fetch', () => {
+    const req = new HttpRequest('GET', '/test', {referrer: 'about:client'});
+    backend.handle(req).subscribe();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/test',
+      jasmine.objectContaining({
+        referrer: 'about:client',
+      }),
+    );
+
+    fetchMock.mockFlush(HttpStatusCode.Ok, 'OK');
+  });
+
+  it('should pass integrity option to fetch', () => {
+    const req = new HttpRequest('GET', '/test', {integrity: 'sha256-...'});
+    backend.handle(req).subscribe();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/test',
+      jasmine.objectContaining({
+        integrity: 'sha256-...',
+      }),
+    );
+
+    fetchMock.mockFlush(HttpStatusCode.Ok, 'OK');
+  });
+
   describe('progress events', () => {
     it('are emitted for download progress', (done) => {
       backend
@@ -457,21 +507,6 @@ describe('FetchBackend', async () => {
           done();
         });
       fetchMock.response.url = '/response/url';
-      fetchMock.mockFlush(HttpStatusCode.Ok, 'OK', 'Test');
-    });
-
-    it('from X-Request-URL header if the response URL is not present', (done) => {
-      backend
-        .handle(TEST_POST)
-        .pipe(toArray())
-        .subscribe((events) => {
-          expect(events.length).toBe(2);
-          expect(events[1].type).toBe(HttpEventType.Response);
-          const response = events[1] as HttpResponse<string>;
-          expect(response.url).toBe('/response/url');
-          done();
-        });
-      fetchMock.response.headers = {'X-Request-URL': '/response/url'};
       fetchMock.mockFlush(HttpStatusCode.Ok, 'OK', 'Test');
     });
 

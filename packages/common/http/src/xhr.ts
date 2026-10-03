@@ -15,16 +15,10 @@ import {
 import {from, Observable, Observer, of} from 'rxjs';
 import {switchMap} from 'rxjs/operators';
 
-import {HttpBackend} from './backend';
+import type {HttpBackend} from './backend';
 import {RuntimeErrorCode} from './errors';
 import {HttpHeaders} from './headers';
-import {
-  ACCEPT_HEADER,
-  ACCEPT_HEADER_VALUE,
-  CONTENT_TYPE_HEADER,
-  HttpRequest,
-  X_REQUEST_URL_HEADER,
-} from './request';
+import {ACCEPT_HEADER, ACCEPT_HEADER_VALUE, CONTENT_TYPE_HEADER, HttpRequest} from './request';
 import {
   HTTP_STATUS_CODE_NO_CONTENT,
   HTTP_STATUS_CODE_OK,
@@ -39,22 +33,6 @@ import {
 } from './response';
 
 const XSSI_PREFIX = /^\)\]\}',?\n/;
-
-const X_REQUEST_URL_REGEXP = RegExp(`^${X_REQUEST_URL_HEADER}:`, 'm');
-
-/**
- * Determine an appropriate URL for the response, by checking either
- * XMLHttpRequest.responseURL or the X-Request-URL header.
- */
-function getResponseUrl(xhr: any): string | null {
-  if ('responseURL' in xhr && xhr.responseURL) {
-    return xhr.responseURL;
-  }
-  if (X_REQUEST_URL_REGEXP.test(xhr.getAllResponseHeaders())) {
-    return xhr.getResponseHeader(X_REQUEST_URL_HEADER);
-  }
-  return null;
-}
 
 /**
  * Validates whether the request is compatible with the XHR backend.
@@ -89,11 +67,19 @@ function validateXhrCompatibility(req: HttpRequest<any>) {
       property: 'credentials',
       errorCode: RuntimeErrorCode.CREDENTIALS_NOT_SUPPORTED_WITH_XHR,
     },
+    {
+      property: 'integrity',
+      errorCode: RuntimeErrorCode.INTEGRITY_NOT_SUPPORTED_WITH_XHR,
+    },
+    {
+      property: 'referrer',
+      errorCode: RuntimeErrorCode.REFERRER_NOT_SUPPORTED_WITH_XHR,
+    },
   ];
 
   // Check each unsupported option and warn if present
   for (const {property, errorCode} of unsupportedOptions) {
-    if (property in req) {
+    if (req[property]) {
       console.warn(
         formatRuntimeError(
           errorCode,
@@ -111,7 +97,7 @@ function validateXhrCompatibility(req: HttpRequest<any>) {
  *
  * @publicApi
  */
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class HttpXhrBackend implements HttpBackend {
   constructor(private xhrFactory: XhrFactory) {}
 
@@ -218,7 +204,7 @@ export class HttpXhrBackend implements HttpBackend {
 
             // Read the response URL from the XMLHttpResponse instance and fall back on the
             // request URL.
-            const url = getResponseUrl(xhr) || req.url;
+            const url = xhr.responseURL || req.url;
 
             // Construct the HttpHeaderResponse and memoize it.
             headerResponse = new HttpHeaderResponse({headers, status: xhr.status, statusText, url});

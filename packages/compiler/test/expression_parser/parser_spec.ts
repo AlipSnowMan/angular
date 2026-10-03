@@ -18,6 +18,7 @@ import {
   TemplateBinding,
   VariableBinding,
   BindingPipeType,
+  Binary,
 } from '../../src/expression_parser/ast';
 import {ParseError} from '../../src/parse_util';
 import {Lexer} from '../../src/expression_parser/lexer';
@@ -509,6 +510,36 @@ describe('parser', () => {
         checkBinding('typeof `hello ${name}!`');
       });
     });
+
+    describe('regular expression literals', () => {
+      it('should parse a regular expression literal without flags', () => {
+        checkBinding('/abc/');
+        checkBinding('/[a/]$/');
+        checkBinding('/a\\w+/');
+        checkBinding('/^http:\\/\\/foo\\.bar/');
+      });
+
+      it('should parse a regular expression literal with flags', () => {
+        checkBinding('/abc/g');
+        checkBinding('/[a/]$/gi');
+        checkBinding('/a\\w+/gim');
+        checkBinding('/^http:\\/\\/foo\\.bar/i');
+      });
+
+      it('should parse a regular expression that is a part of other expressions', () => {
+        checkBinding('/abc/.test("foo")');
+        checkBinding('"foo".match(/(abc)/)[1].toUpperCase()');
+        checkBinding('/abc/.test("foo") && something || somethingElse');
+      });
+
+      it('should report invalid regular expression flag', () => {
+        expectBindingError('"foo".match(/abc/O)', 'Unsupported regular expression flag "O"');
+      });
+
+      it('should report duplicated regular expression flags', () => {
+        expectBindingError('"foo".match(/abc/gig)', 'Duplicate regular expression flag "g"');
+      });
+    });
   });
 
   describe('parse spans', () => {
@@ -631,6 +662,33 @@ describe('parser', () => {
       ]);
     });
 
+    it('should record spans for binary assignment operations', () => {
+      expect(unparseWithSpan(parseAction('a.b ??= c'))).toEqual([
+        ['a.b ??= c', 'a.b ??= c'],
+        ['a.b', 'a.b'],
+        ['a.b', '[nameSpan] b'],
+        ['a', 'a'],
+        ['a', '[nameSpan] a'],
+        ['', ''],
+        ['c', 'c'],
+        ['c', '[nameSpan] c'],
+        ['', ' '],
+      ]);
+      expect(unparseWithSpan(parseAction('a[b] ||= c'))).toEqual([
+        ['a[b] ||= c', 'a[b] ||= c'],
+        ['a[b]', 'a[b]'],
+        ['a', 'a'],
+        ['a', '[nameSpan] a'],
+        ['', ''],
+        ['b', 'b'],
+        ['b', '[nameSpan] b'],
+        ['', ''],
+        ['c', 'c'],
+        ['c', '[nameSpan] c'],
+        ['', ' '],
+      ]);
+    });
+
     it('should include parenthesis in spans', () => {
       // When a LHS expression is parenthesized, the parenthesis on the left used to be
       // excluded from the span. This test verifies that the parenthesis are properly included
@@ -662,6 +720,22 @@ describe('parser', () => {
       function expectSpan(input: string) {
         expect(unparseWithSpan(parseBinding(input))).toContain([jasmine.any(String), input]);
       }
+    });
+
+    it('should record span for a regex without flags', () => {
+      const ast = parseBinding('/^http:\\/\\/foo\\.bar/');
+      expect(unparseWithSpan(ast)).toContain([
+        '/^http:\\/\\/foo\\.bar/',
+        '/^http:\\/\\/foo\\.bar/',
+      ]);
+    });
+
+    it('should record span for a regex with flags', () => {
+      const ast = parseBinding('/^http:\\/\\/foo\\.bar/gim');
+      expect(unparseWithSpan(ast)).toContain([
+        '/^http:\\/\\/foo\\.bar/gim',
+        '/^http:\\/\\/foo\\.bar/gim',
+      ]);
     });
   });
 
@@ -1221,6 +1295,11 @@ describe('parser', () => {
         parseInterpolation('foo {{  }}')!,
         'Parser Error: Blank expressions are not allowed in interpolated strings',
       );
+
+      expectError(
+        parseInterpolation('{{  }}')!,
+        'Parser Error: Blank expressions are not allowed in interpolated strings',
+      );
     });
 
     it('should produce an empty expression ast for empty interpolations', () => {
@@ -1237,20 +1316,16 @@ describe('parser', () => {
       checkInterpolation(`{{ 'foo' +\n 'bar' +\r 'baz' }}`, `{{ "foo" + "bar" + "baz" }}`);
     });
 
-    it('should support custom interpolation', () => {
-      const parser = new Parser(new Lexer());
-      const ast = parser.parseInterpolation('{% a %}', getFakeSpan(), 0, null, {
-        start: '{%',
-        end: '%}',
-      })!.ast as any;
-      expect(ast.strings).toEqual(['', '']);
-      expect(ast.expressions.length).toEqual(1);
-      expect(ast.expressions[0].name).toEqual('a');
-    });
-
     describe('comments', () => {
       it('should ignore comments in interpolation expressions', () => {
         checkInterpolation('{{a //comment}}', '{{ a }}');
+      });
+
+      it('should error when interpolation only contains a comment', () => {
+        expectError(
+          parseInterpolation('{{ // foobar  }}')!,
+          'Parser Error: Interpolation expression cannot only contain a comment at column 0 in [{{ // foobar  }}]',
+        );
       });
 
       it('should retain // in single quote strings', () => {

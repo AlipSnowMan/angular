@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "angular_jasmine_test", "ng_web_test_suite", "ts_project")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ng_web_test_suite", "ts_project")
 
 # Test that should only be run in node
 NODE_ONLY = [
@@ -13,7 +13,8 @@ ts_project(
         ["**/*.ts"],
         exclude = NODE_ONLY,
     ),
-    interop_deps = [
+    deps = [
+        "//:node_modules/source-map",
         "//packages/common",
         "//packages/compiler",
         "//packages/compiler/test/expression_parser/utils",
@@ -26,9 +27,6 @@ ts_project(
         "//packages/platform-browser/testing",
         "//packages/private/testing",
     ],
-    deps = [
-        "//:node_modules/source-map",
-    ],
 )
 
 ts_project(
@@ -37,22 +35,20 @@ ts_project(
     srcs = glob(
         NODE_ONLY,
     ),
-    interop_deps = [
+    deps = [
         ":test_lib",
+        "//:node_modules/typescript",
         "//packages/compiler",
         "//packages/compiler/test/expression_parser/utils",
         "//packages/core",
-    ],
-    deps = [
-        "//:node_modules/typescript",
     ],
 )
 
 angular_jasmine_test(
     name = "test",
     data = [
-        ":test_lib_rjs",
-        ":test_node_only_lib_rjs",
+        ":test_lib",
+        ":test_node_only_lib",
         "//:node_modules/source-map",
     ],
 )
@@ -60,6 +56,6 @@ angular_jasmine_test(
 ng_web_test_suite(
     name = "test_web",
     deps = [
-        ":test_lib_rjs",
+        ":test_lib",
     ],
 )

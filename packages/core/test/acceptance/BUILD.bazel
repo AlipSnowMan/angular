@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "angular_jasmine_test", "ng_project", "ng_web_test_suite", "ts_project")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ng_project", "ng_web_test_suite", "ts_project")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -13,7 +13,10 @@ ts_project(
         ["**/*.ts"],
         exclude = SPEC_FILES_WITH_FORWARD_REFS,
     ),
-    interop_deps = [
+    # Visible to //:saucelabs_unit_tests
+    visibility = ["//:__pkg__"],
+    deps = [
+        "//:node_modules/rxjs",
         "//packages/animations",
         "//packages/animations/browser",
         "//packages/animations/browser/testing",
@@ -24,6 +27,7 @@ ts_project(
         "//packages/core/primitives/signals",
         "//packages/core/src/di/interface",
         "//packages/core/src/util",
+        "//packages/core/test/animation_utils",
         "//packages/core/test/render3:matchers",
         "//packages/core/testing",
         "//packages/localize",
@@ -34,11 +38,6 @@ ts_project(
         "//packages/platform-server",
         "//packages/private/testing",
         "//packages/router",
-    ],
-    # Visible to //:saucelabs_unit_tests
-    visibility = ["//:__pkg__"],
-    deps = [
-        "//:node_modules/rxjs",
     ],
 )
 
@@ -52,7 +51,7 @@ ng_project(
     name = "forward_ref_test_lib",
     testonly = True,
     srcs = SPEC_FILES_WITH_FORWARD_REFS,
-    interop_deps = [
+    deps = [
         "//packages/core",
         "//packages/core/testing",
     ],
@@ -61,15 +60,15 @@ ng_project(
 angular_jasmine_test(
     name = "acceptance",
     data = [
-        ":acceptance_lib_rjs",
-        ":forward_ref_test_lib_rjs",
+        ":acceptance_lib",
+        ":forward_ref_test_lib",
     ],
 )
 
 ng_web_test_suite(
     name = "acceptance_web",
     deps = [
-        ":acceptance_lib_rjs",
-        ":forward_ref_test_lib_rjs",
+        ":acceptance_lib",
+        ":forward_ref_test_lib",
     ],
 )

@@ -10,8 +10,6 @@ import {ResourceLoader} from '@angular/compiler';
 import {
   ApplicationInitStatus,
   ɵINTERNAL_APPLICATION_ERROR_HANDLER as INTERNAL_APPLICATION_ERROR_HANDLER,
-  ɵChangeDetectionScheduler as ChangeDetectionScheduler,
-  ɵChangeDetectionSchedulerImpl as ChangeDetectionSchedulerImpl,
   Compiler,
   COMPILER_OPTIONS,
   Component,
@@ -43,6 +41,7 @@ import {
   ɵgetAsyncClassMetadataFn as getAsyncClassMetadataFn,
   ɵgetInjectableDef as getInjectableDef,
   ɵInternalEnvironmentProviders as InternalEnvironmentProviders,
+  ɵprovideZonelessChangeDetectionInternal as provideZonelessChangeDetectionInternal,
   ɵinternalProvideZoneChangeDetection as internalProvideZoneChangeDetection,
   ɵisComponentDefPendingResolution,
   ɵisEnvironmentProviders as isEnvironmentProviders,
@@ -65,6 +64,7 @@ import {
   NgZone,
   ErrorHandler,
   ENVIRONMENT_INITIALIZER,
+  ɵANIMATIONS_DISABLED as ANIMATIONS_DISABLED,
 } from '../../src/core';
 
 import {ComponentDef, ComponentType} from '../../src/render3';
@@ -77,7 +77,11 @@ import {
   PipeResolver,
   Resolver,
 } from './resolvers';
-import {DEFER_BLOCK_DEFAULT_BEHAVIOR, TestModuleMetadata} from './test_bed_common';
+import {
+  ANIMATIONS_ENABLED_DEFAULT,
+  DEFER_BLOCK_DEFAULT_BEHAVIOR,
+  TestModuleMetadata,
+} from './test_bed_common';
 import {
   RETHROW_APPLICATION_ERRORS_DEFAULT,
   TestBedApplicationErrorHandler,
@@ -87,6 +91,8 @@ enum TestingModuleOverride {
   DECLARATION,
   OVERRIDE_TEMPLATE,
 }
+
+const ZONELESS_BY_DEFAULT = true;
 
 function isTestingModuleOverride(value: unknown): value is TestingModuleOverride {
   return (
@@ -188,6 +194,7 @@ export class TestBedCompiler {
   private testModuleType: NgModuleType<any>;
   private testModuleRef: NgModuleRef<any> | null = null;
 
+  private animationsEnabled = ANIMATIONS_ENABLED_DEFAULT;
   private deferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
   private rethrowApplicationTickErrors = RETHROW_APPLICATION_ERRORS_DEFAULT;
 
@@ -232,6 +239,7 @@ export class TestBedCompiler {
     }
 
     this.deferBlockBehavior = moduleDef.deferBlockBehavior ?? DEFER_BLOCK_DEFAULT_BEHAVIOR;
+    this.animationsEnabled = moduleDef.animationsEnabled ?? ANIMATIONS_ENABLED_DEFAULT;
     this.rethrowApplicationTickErrors =
       moduleDef.rethrowApplicationErrors ?? RETHROW_APPLICATION_ERRORS_DEFAULT;
   }
@@ -929,9 +937,9 @@ export class TestBedCompiler {
     compileNgModuleDefs(RootScopeModule as NgModuleType<any>, {
       providers: [
         ...this.rootProviderOverrides,
-        internalProvideZoneChangeDetection({}),
+        provideZonelessChangeDetectionInternal(),
+        ZONELESS_BY_DEFAULT ? [] : internalProvideZoneChangeDetection({}),
         TestBedApplicationErrorHandler,
-        {provide: ChangeDetectionScheduler, useExisting: ChangeDetectionSchedulerImpl},
         {
           provide: ENVIRONMENT_INITIALIZER,
           multi: true,
@@ -945,6 +953,10 @@ export class TestBedCompiler {
     const providers = [
       {provide: Compiler, useFactory: () => new R3TestCompiler(this)},
       {provide: DEFER_BLOCK_CONFIG, useValue: {behavior: this.deferBlockBehavior}},
+      {
+        provide: ANIMATIONS_DISABLED,
+        useValue: !this.animationsEnabled,
+      },
       {
         provide: INTERNAL_APPLICATION_ERROR_HANDLER,
         useFactory: () => {

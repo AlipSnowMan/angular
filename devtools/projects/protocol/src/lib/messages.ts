@@ -22,6 +22,7 @@ export interface DebugSignalGraphNode {
   epoch: number;
   label?: string;
   preview: Descriptor;
+  debuggable: boolean;
 }
 
 export interface DebugSignalGraphEdge {
@@ -149,6 +150,9 @@ export enum PropType {
   Set,
   Map,
   Unknown,
+
+  // Special Type when an error occurs during property access
+  Error,
 }
 
 export interface Descriptor {
@@ -317,6 +321,7 @@ export interface Route {
   isActive: boolean;
   isAux: boolean;
   isLazy: boolean;
+  isRedirect: boolean;
 }
 
 export interface AngularDetection {
@@ -339,7 +344,18 @@ export interface SupportedApis {
   dependencyInjection: boolean;
   routes: boolean;
   signals: boolean;
+  transferState: boolean;
+  signalPropertiesInspection: boolean;
 }
+
+export type TransferStateValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Record<string, unknown>
+  | unknown[];
 
 export interface Events {
   handshake: () => void;
@@ -402,6 +418,9 @@ export interface Events {
   ) => void;
 
   logProvider: (injector: SerializedInjector, providers: SerializedProviderRecord) => void;
+
+  getTransferState: () => void;
+  transferStateData: (data: Record<string, TransferStateValue> | null) => void;
 
   contentScriptConnected: (frameId: number, name: string, url: string) => void;
   contentScriptDisconnected: (frameId: number, name: string, url: string) => void;

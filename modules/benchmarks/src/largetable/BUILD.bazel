@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "ts_project")
+load("//tools:defaults.bzl", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -6,7 +6,7 @@ ts_project(
     name = "util_lib",
     srcs = ["util.ts"],
     tsconfig = "//modules/benchmarks:tsconfig_build",
-    deps = ["//modules/benchmarks/src:util_lib_rjs"],
+    deps = ["//modules/benchmarks/src:util_lib"],
 )
 
 ts_project(
@@ -15,8 +15,8 @@ ts_project(
     srcs = ["largetable.perf-spec.ts"],
     tsconfig = "//modules/benchmarks:tsconfig_e2e",
     deps = [
-        "//:node_modules/protractor",
-        "//modules/utilities:utilities_rjs",
+        "//modules:node_modules/protractor",
+        "//modules/utilities",
     ],
 )
 
@@ -26,7 +26,7 @@ ts_project(
     srcs = ["largetable.e2e-spec.ts"],
     tsconfig = "//modules/benchmarks:tsconfig_e2e",
     deps = [
-        "//:node_modules/protractor",
-        "//modules/utilities:utilities_rjs",
+        "//modules:node_modules/protractor",
+        "//modules/utilities",
     ],
 )

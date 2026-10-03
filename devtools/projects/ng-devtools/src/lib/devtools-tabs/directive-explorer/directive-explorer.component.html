@@ -1,7 +1,13 @@
 <as-split unit="percent" [direction]="splitDirection()" [gutterSize]="9">
   <as-split-area #directiveForestSplitArea size="60">
-    <as-split direction="vertical" [gutterSize]="9" unit="percent">
-      <as-split-area class="forest-breadcrumbs" size="30">
+    <as-split
+      [ngResponsiveSplit]="responsiveSplitConfig"
+      (directionChange)="onResponsiveSplitDirChange($event)"
+      direction="vertical"
+      [gutterSize]="9"
+      unit="percent"
+    >
+      <as-split-area class="forest-breadcrumbs" [size]="forestSplitSize()">
         <ng-directive-forest
           (selectNode)="handleNodeSelection($event)"
           (selectDomElement)="handleSelectDomElement($event)"
@@ -13,21 +19,19 @@
           [currentSelectedElement]="currentSelectedElement()!"
           [showCommentNodes]="showCommentNodes()"
         />
-        <div class="breadcrumbs">
-          @if (parents()) {
-            <ng-breadcrumbs
-              (mouseLeaveNode)="unhighlight()"
-              (mouseOverNode)="highlight($event)"
-              (handleSelect)="handleSelect($event)"
-              [parents]="parents()!"
-            />
-          }
-        </div>
+        @if (parents()) {
+          <ng-breadcrumbs
+            (mouseLeaveNode)="unhighlight()"
+            (mouseOverNode)="highlight($event)"
+            (handleSelect)="handleSelect($event)"
+            [parents]="parents()!"
+          />
+        }
       </as-split-area>
-      @if (signalsOpen() && currentSelectedElement(); as currentSelectedElement) {
-        <as-split-area size="70">
+      @if (signalsOpen() && signalGraph.element()) {
+        <as-split-area [size]="signalGraphSplitSize()">
           <ng-signals-tab
-            [currentElement]="currentSelectedElement.position"
+            [preselectedNodeId]="preselectedSignalNodeId()"
             (close)="signalsOpen.set(false)"
           />
         </as-split-area>
@@ -39,7 +43,6 @@
       @if (currentSelectedElement(); as currentSelectedElement) {
         <ng-property-tab
           [currentSelectedElement]="currentSelectedElement"
-          [signalGraphEnabled]="signalGraphEnabled()"
           (showSignalGraph)="showSignalGraph($event)"
           (inspect)="inspect($event)"
           (viewSource)="viewSource($event)"

@@ -6,18 +6,15 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {
-  TreeD3Node,
-  TreeNode,
-  TreeVisualizer,
-} from '../../shared/tree-visualizer-host/tree-visualizer';
+import {TreeD3Node, TreeNode} from '../../shared/tree-visualizer/tree-visualizer';
 import {Route} from '../../../../../protocol';
+import {TreeVisualizerComponent} from '../../shared/tree-visualizer/tree-visualizer.component';
 
 export interface RouterTreeNode extends TreeNode, Route {
   children: RouterTreeNode[];
 }
 
-export type RouterTreeVisualizer = TreeVisualizer<RouterTreeNode>;
+export type RouterTreeVisualizer = TreeVisualizerComponent<RouterTreeNode>;
 export type RouterTreeD3Node = TreeD3Node<RouterTreeNode>;
 
 export function getRouteLabel(
@@ -64,4 +61,27 @@ export function transformRoutesIntoVisTree(root: Route, showFullPath: boolean): 
   }
 
   return rootNode!;
+}
+
+export function findNodesByLabel(root: RouterTreeNode, searchString: string): Set<RouterTreeNode> {
+  let matches: Set<RouterTreeNode> = new Set();
+
+  if (!searchString) {
+    return matches;
+  }
+
+  const traverse = (node: RouterTreeNode) => {
+    if (node.label.toLowerCase().includes(searchString)) {
+      matches.add(node);
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        traverse(child);
+      }
+    }
+  };
+  traverse(root);
+
+  return matches;
 }

@@ -214,7 +214,6 @@ export interface R3ComponentMetadataFacade extends R3DirectiveMetadataFacade {
   styles: string[];
   encapsulation: ViewEncapsulation;
   viewProviders: Provider[] | null;
-  interpolation?: [string, string];
   changeDetection?: ChangeDetectionStrategy;
   hasDirectiveDependencies: boolean;
 }
@@ -277,7 +276,6 @@ export interface R3DeclareComponentFacade extends R3DeclareDirectiveFacade {
   animations?: OpaqueValue;
   changeDetection?: ChangeDetectionStrategy;
   encapsulation?: ViewEncapsulation;
-  interpolation?: [string, string];
   preserveWhitespaces?: boolean;
 }
 
@@ -348,6 +346,7 @@ export enum ViewEncapsulation {
   // Historically the 1 value was for `Native` encapsulation which has been removed as of v11.
   None = 2,
   ShadowDom = 3,
+  IsolatedShadowDom = 4,
 }
 
 export type ChangeDetectionStrategy = number;

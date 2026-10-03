@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "ts_project")
+load("//tools:defaults.bzl", "ts_project")
 
 package(default_visibility = ["//modules/benchmarks:__subpackages__"])
 
@@ -8,7 +8,7 @@ ts_project(
     srcs = ["styling_perf.spec.ts"],
     tsconfig = "//modules/benchmarks:tsconfig_e2e",
     deps = [
-        "//:node_modules/protractor",
-        "//modules/utilities:utilities_rjs",
+        "//modules:node_modules/protractor",
+        "//modules/utilities",
     ],
 )

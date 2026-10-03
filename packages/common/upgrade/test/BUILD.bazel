@@ -1,24 +1,22 @@
-load("//tools:defaults2.bzl", "angular_jasmine_test", "ts_project")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ts_project")
 
 ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob(["**/*.ts"]),
-    interop_deps = [
+    deps = [
+        "//packages/common",
+        "//packages/common/testing",
+        "//packages/common/upgrade",
         "//packages/core",
         "//packages/core/testing",
-    ],
-    deps = [
-        "//packages/common:common_rjs",
-        "//packages/common/testing:testing_rjs",
-        "//packages/common/upgrade:upgrade_rjs",
-        "//packages/upgrade/static:static_rjs",
+        "//packages/upgrade/static",
     ],
 )
 
 angular_jasmine_test(
     name = "test",
     data = [
-        ":test_lib_rjs",
+        ":test_lib",
     ],
 )

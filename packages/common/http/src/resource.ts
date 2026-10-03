@@ -287,6 +287,8 @@ function normalizeRequest(
       context: unwrappedRequest.context,
       transferCache: unwrappedRequest.transferCache,
       credentials: unwrappedRequest.credentials as RequestCredentials,
+      referrer: unwrappedRequest.referrer,
+      integrity: unwrappedRequest.integrity,
       timeout: unwrappedRequest.timeout,
     },
   );
@@ -389,6 +391,14 @@ class HttpResourceImpl<T>
       injector,
     );
     this.client = injector.get(HttpClient);
+  }
+
+  override set(value: T): void {
+    super.set(value);
+
+    this._headers.set(undefined);
+    this._progress.set(undefined);
+    this._statusCode.set(undefined);
   }
 
   // This is a type only override of the method

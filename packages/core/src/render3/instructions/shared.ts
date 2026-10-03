@@ -177,7 +177,10 @@ export function locateHostElement(
 
   // When using native Shadow DOM, do not clear host element to allow native slot
   // projection.
-  const preserveContent = preserveHostContent || encapsulation === ViewEncapsulation.ShadowDom;
+  const preserveContent =
+    preserveHostContent ||
+    encapsulation === ViewEncapsulation.ShadowDom ||
+    encapsulation === ViewEncapsulation.IsolatedShadowDom;
   const rootElement = renderer.selectRootElement(elementOrSelector, preserveContent);
   applyRootElementTransform(rootElement as HTMLElement);
   return rootElement;
@@ -234,8 +237,7 @@ export function enableApplyRootElementTransformImpl() {
  * object lookup) for performance reasons - the series of `if` checks seems to be the fastest way of
  * mapping property names. Do NOT change without benchmarking.
  *
- * Note: this mapping has to be kept in sync with the equally named mapping in the template
- * type-checking machinery of ngtsc.
+ * Note: this mapping has to be kept in sync with the equivalent mappings in the compiler.
  */
 function mapPropName(name: string): string {
   if (name === 'class') return 'className';
@@ -265,6 +267,11 @@ export function setPropertyAndInputs<T>(
     return; // Stop propcessing if we've matched at least one input.
   }
 
+  // If the property is going to a DOM node, we have to remap it.
+  if (tNode.type & TNodeType.AnyRNode) {
+    propName = mapPropName(propName);
+  }
+
   setDomProperty(tNode, lView, propName, value, renderer, sanitizer);
 }
 
@@ -287,7 +294,6 @@ export function setDomProperty<T>(
 ) {
   if (tNode.type & TNodeType.AnyRNode) {
     const element = getNativeByTNode(tNode, lView) as RElement | RComment;
-    propName = mapPropName(propName);
 
     if (ngDevMode) {
       validateAgainstEventProperties(propName);
@@ -341,7 +347,7 @@ function setNgReflectProperty(lView: LView, tNode: TNode, attrName: string, valu
   }
 }
 
-function setNgReflectProperties(
+export function setNgReflectProperties(
   lView: LView,
   tView: TView,
   tNode: TNode,
@@ -699,7 +705,12 @@ export function handleUncaughtError(lView: LView, error: any): void {
   if (!injector) {
     return;
   }
-  const errorHandler = injector.get(INTERNAL_APPLICATION_ERROR_HANDLER, null);
+  let errorHandler: ((e: any) => void) | null;
+  try {
+    errorHandler = injector.get(INTERNAL_APPLICATION_ERROR_HANDLER, null);
+  } catch {
+    errorHandler = null;
+  }
   errorHandler?.(error);
 }
 

@@ -37,7 +37,7 @@ import {DestroyRef} from '../linker/destroy_ref';
  *
  * This internal flag is being used to gradually roll out this behavior.
  */
-const RESOURCE_VALUE_THROWS_ERRORS_DEFAULT = true;
+let RESOURCE_VALUE_THROWS_ERRORS_DEFAULT = true;
 
 /**
  * Constructs a `Resource` that projects a reactive request to an asynchronous operation defined by
@@ -130,15 +130,19 @@ abstract class BaseWritableResource<T> implements WritableResource<T> {
 
   readonly isLoading = computed(() => this.status() === 'loading' || this.status() === 'reloading');
 
-  hasValue(): this is ResourceRef<Exclude<T, undefined>> {
-    // Note: we specifically read `isError()` instead of `status()` here to avoid triggering
-    // reactive consumers which read `hasValue()`. This way, if `hasValue()` is used inside of an
-    // effect, it doesn't cause the effect to rerun on every status change.
+  // Use a computed here to avoid triggering reactive consumers if the value changes while staying
+  // either defined or undefined.
+  private readonly isValueDefined = computed(() => {
+    // Check if it's in an error state first to prevent the error from bubbling up.
     if (this.isError()) {
       return false;
     }
 
     return this.value() !== undefined;
+  });
+
+  hasValue(): this is ResourceRef<Exclude<T, undefined>> {
+    return this.isValueDefined();
   }
 
   asReadonly(): Resource<T> {

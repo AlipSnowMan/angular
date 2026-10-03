@@ -72,6 +72,8 @@ export abstract class SwRegistrationOptions {
     enabled?: boolean;
     registrationStrategy?: string | (() => Observable<unknown>);
     scope?: string;
+    type?: WorkerType;
+    updateViaCache?: ServiceWorkerUpdateViaCache;
 }
 
 // @public
@@ -108,7 +110,7 @@ export interface VersionDetectedEvent {
 }
 
 // @public
-export type VersionEvent = VersionDetectedEvent | VersionInstallationFailedEvent | VersionReadyEvent | NoNewVersionDetectedEvent;
+export type VersionEvent = VersionDetectedEvent | VersionInstallationFailedEvent | VersionReadyEvent | VersionFailedEvent | NoNewVersionDetectedEvent;
 
 // @public
 export interface VersionInstallationFailedEvent {

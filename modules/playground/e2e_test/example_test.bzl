@@ -1,6 +1,6 @@
-load("@devinfra//bazel/spec-bundling:index_rjs.bzl", "spec_bundle")
-load("@rules_browsers//src/protractor_test:index.bzl", "protractor_test")
-load("//tools:defaults2.bzl", "ts_project")
+load("@devinfra//bazel/spec-bundling:index.bzl", "spec_bundle")
+load("@rules_browsers//protractor_test:index.bzl", "protractor_test")
+load("//tools:defaults.bzl", "ts_project")
 
 def example_test(
         name,
@@ -23,9 +23,9 @@ def example_test(
         srcs = srcs,
         tsconfig = tsconfig,
         deps = deps + [
-            "//:node_modules/protractor",
-            "//:node_modules/@types/selenium-webdriver",
-            "//modules/utilities:utilities_rjs",
+            "//modules:node_modules/protractor",
+            "//modules:node_modules/@types/selenium-webdriver",
+            "//modules/utilities:utilities",
         ],
     )
 
@@ -34,7 +34,7 @@ def example_test(
         testonly = True,
         srcs = ["//modules/playground:tsconfig_e2e"],
         deps = [
-            "%s_lib_rjs" % name,
+            "%s_lib" % name,
         ],
         tags = [
             "manual",
@@ -52,6 +52,6 @@ def example_test(
         server = server,
         data = data + [
             "//modules:node_modules/selenium-webdriver",
-            "//:node_modules/yargs",
+            "//modules:node_modules/yargs",
         ],
     )

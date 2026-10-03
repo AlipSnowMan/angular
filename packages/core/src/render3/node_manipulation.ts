@@ -62,6 +62,7 @@ import {
   HookData,
   HookFn,
   HOST,
+  ANIMATIONS,
   LView,
   LViewFlags,
   NEXT,
@@ -79,6 +80,7 @@ import {assertTNodeType} from './node_assert';
 import {profiler} from './profiler';
 import {ProfilerEvent} from './profiler_types';
 import {getLViewParent, getNativeByTNode, unwrapRNode} from './util/view_utils';
+import {allLeavingAnimations} from '../animation/longest_animation';
 
 const enum WalkTNodeTreeAction {
   /** node create in the native environment. Run on initial creation. */
@@ -107,6 +109,7 @@ function applyToElementOrContainer(
   parent: RElement | null,
   lNodeToHandle: RNode | LContainer | LView,
   beforeNode?: RNode | null,
+  parentLView?: LView,
 ) {
   // If this slot was allocated for a text node dynamically created by i18n, the text node itself
   // won't be created until i18nApply() in the update block, so this node should be skipped.
@@ -136,9 +139,16 @@ function applyToElementOrContainer(
     } else if (action === WalkTNodeTreeAction.Insert && parent !== null) {
       nativeInsertBefore(renderer, parent, rNode, beforeNode || null, true);
     } else if (action === WalkTNodeTreeAction.Detach) {
-      nativeRemoveNode(renderer, rNode, isComponent);
+      runLeaveAnimationsWithCallback(parentLView, (nodeHasLeaveAnimations: boolean) => {
+        // the nodeHasLeaveAnimations indicates to the renderer that the element needs to
+        // be removed synchronously and sets the requireSynchronousElementRemoval flag in
+        // the renderer.
+        nativeRemoveNode(renderer, rNode, isComponent, nodeHasLeaveAnimations);
+      });
     } else if (action === WalkTNodeTreeAction.Destroy) {
-      renderer.destroyNode!(rNode);
+      runLeaveAnimationsWithCallback(parentLView, () => {
+        renderer.destroyNode!(rNode);
+      });
     }
     if (lContainer != null) {
       applyContainer(renderer, action, lContainer, parent, beforeNode);
@@ -278,13 +288,11 @@ export function destroyLView(tView: TView, lView: LView) {
   if (isDestroyed(lView)) {
     return;
   }
-
   const renderer = lView[RENDERER];
 
   if (renderer.destroyNode) {
     applyView(tView, lView, renderer, WalkTNodeTreeAction.Destroy, null, null);
   }
-
   destroyViewTree(lView);
 }
 
@@ -343,6 +351,42 @@ function cleanUpView(tView: TView, lView: LView): void {
   } finally {
     setActiveConsumer(prevConsumer);
   }
+}
+
+function hasLeaveAnimations(lView: LView | undefined): boolean {
+  return lView !== undefined && lView[ANIMATIONS] !== null && lView[ANIMATIONS].leave !== undefined;
+}
+
+function runLeaveAnimationsWithCallback(lView: LView | undefined, callback: Function) {
+  if (lView && lView[ANIMATIONS] && lView[ANIMATIONS].leave) {
+    if (lView[ANIMATIONS].skipLeaveAnimations) {
+      lView[ANIMATIONS].skipLeaveAnimations = false;
+    } else {
+      const leaveAnimations = lView[ANIMATIONS].leave;
+      const runningAnimations = [];
+      for (let index = 0; index < leaveAnimations.length; index++) {
+        const animateFn = leaveAnimations[index];
+        runningAnimations.push(animateFn());
+      }
+      lView[ANIMATIONS].running = Promise.allSettled(runningAnimations);
+      lView[ANIMATIONS].leave = undefined;
+    }
+  }
+  runAfterLeaveAnimations(lView, callback);
+}
+
+function runAfterLeaveAnimations(lView: LView | undefined, callback: Function) {
+  if (lView && lView[ANIMATIONS] && lView[ANIMATIONS].running) {
+    lView[ANIMATIONS].running.then(() => {
+      if (lView[ANIMATIONS] && lView[ANIMATIONS].running) {
+        lView[ANIMATIONS].running = undefined;
+      }
+      allLeavingAnimations.delete(lView);
+      callback(true);
+    });
+    return;
+  }
+  callback(false);
 }
 
 /** Removes listeners and unsubscribes from output subscriptions */
@@ -755,14 +799,28 @@ function applyNodes(
     if (!isDetachedByI18n(tNode)) {
       if (tNodeType & TNodeType.ElementContainer) {
         applyNodes(renderer, action, tNode.child, lView, parentRElement, beforeNode, false);
-        applyToElementOrContainer(action, renderer, parentRElement, rawSlotValue, beforeNode);
+        applyToElementOrContainer(
+          action,
+          renderer,
+          parentRElement,
+          rawSlotValue,
+          beforeNode,
+          lView,
+        );
       } else if (tNodeType & TNodeType.Icu) {
         const nextRNode = icuContainerIterate(tNode as TIcuContainerNode, lView);
         let rNode: RNode | null;
         while ((rNode = nextRNode())) {
-          applyToElementOrContainer(action, renderer, parentRElement, rNode, beforeNode);
+          applyToElementOrContainer(action, renderer, parentRElement, rNode, beforeNode, lView);
         }
-        applyToElementOrContainer(action, renderer, parentRElement, rawSlotValue, beforeNode);
+        applyToElementOrContainer(
+          action,
+          renderer,
+          parentRElement,
+          rawSlotValue,
+          beforeNode,
+          lView,
+        );
       } else if (tNodeType & TNodeType.Projection) {
         applyProjectionRecursive(
           renderer,
@@ -774,7 +832,14 @@ function applyNodes(
         );
       } else {
         ngDevMode && assertTNodeType(tNode, TNodeType.AnyRNode | TNodeType.Container);
-        applyToElementOrContainer(action, renderer, parentRElement, rawSlotValue, beforeNode);
+        applyToElementOrContainer(
+          action,
+          renderer,
+          parentRElement,
+          rawSlotValue,
+          beforeNode,
+          lView,
+        );
       }
     }
     tNode = isProjection ? tNode.projectionNext : tNode.next;
@@ -891,7 +956,7 @@ function applyProjectionRecursive(
     // This should be refactored and cleaned up.
     for (let i = 0; i < nodeToProjectOrRNodes.length; i++) {
       const rNode = nodeToProjectOrRNodes[i];
-      applyToElementOrContainer(action, renderer, parentRElement, rNode, beforeNode);
+      applyToElementOrContainer(action, renderer, parentRElement, rNode, beforeNode, lView);
     }
   } else {
     let nodeToProject: TNode | null = nodeToProjectOrRNodes;

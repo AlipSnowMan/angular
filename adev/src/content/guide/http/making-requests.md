@@ -104,6 +104,49 @@ http.get('/api/config', {
 
 You can instantiate `HttpParams` with a custom `HttpParameterCodec` that determines how `HttpClient` will encode the parameters into the URL.
 
+### Custom parameter encoding
+
+By default, `HttpParams` uses the built-in [`HttpUrlEncodingCodec`](api/common/http/HttpUrlEncodingCodec) to encode and decode parameter keys and values.
+
+You can provide your own implementation of [`HttpParameterCodec`](api/common/http/HttpParameterCodec) to customize how encoding and decoding are applied.
+
+```ts
+import { HttpClient, HttpParams, HttpParameterCodec } from '@angular/common/http';
+import { inject } from '@angular/core';
+
+export class CustomHttpParamEncoder  implements HttpParameterCodec {
+  encodeKey(key: string): string   {
+     return encodeURIComponent(key); 
+  }
+
+  encodeValue(value: string): string {
+    return encodeURIComponent(value);
+  }
+
+  decodeKey(key: string): string {
+    return decodeURIComponent(key);
+  }
+
+  decodeValue(value: string): string {
+    return decodeURIComponent(value);
+  }
+}
+
+export class ApiService {
+  private http = inject(HttpClient);
+
+  search() {
+    const params = new HttpParams({
+      encoder: new CustomHttpParamEncoder(),
+    })
+    .set('email', 'dev+alerts@example.com')
+    .set('q', 'a & b? c/d = e');
+
+    return this.http.get('/api/items', { params });
+  }
+}
+```
+
 ## Setting request headers
 
 Specify request headers that should be included in the request using the `headers` option.
@@ -433,6 +476,51 @@ Available `credentials` values:
 - `'include'`: Always send credentials, even for cross-origin requests
 
 TIP: Use `credentials: 'include'` when you need to send authentication cookies or headers to a different domain that supports CORS. Avoid mixing `credentials` and `withCredentials` options to prevent confusion.
+
+#### Referrer
+
+The `referrer` option allows you to control what referrer information is sent with the request. This is important for privacy and security considerations.
+
+<docs-code language="ts">
+// Send a specific referrer URL
+http.get('/api/data', {
+  referrer: 'https://example.com/page'
+}).subscribe(data => {
+  // ...
+});
+
+// Use the current page as referrer (default behavior)
+http.get('/api/analytics', {
+  referrer: 'about:client'
+}).subscribe(data => {
+  // ...
+});
+</docs-code>
+
+The `referrer` option accepts:
+- A valid URL string: Sets the specific referrer URL to send
+- An empty string `''`: Sends no referrer information
+- `'about:client'`: Uses the default referrer (current page URL)
+
+TIP: Use `referrer: ''` for sensitive requests where you don't want to leak the referring page URL.
+
+#### Integrity
+
+The `integrity` option allows you to verify that the response hasn't been tampered with by providing a cryptographic hash of the expected content. This is particularly useful for loading scripts or other resources from CDNs.
+
+<docs-code language="ts">
+// Verify response integrity with SHA-256 hash
+http.get('/api/script.js', {
+  integrity: 'sha256-ABC123...',
+  responseType: 'text'
+}).subscribe(script => {
+  // Script content is verified against the hash
+});
+</docs-code>
+
+IMPORTANT: The `integrity` option requires an exact match between the response content and the provided hash. If the content doesn't match, the request will fail with a network error.
+
+TIP: Use subresource integrity when loading critical resources from external sources to ensure they haven't been modified. Generate hashes using tools like `openssl`.
 
 ## Http `Observable`s
 

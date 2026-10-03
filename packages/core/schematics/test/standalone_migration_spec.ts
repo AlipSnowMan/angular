@@ -10,8 +10,8 @@ import {getSystemPath, normalize, virtualFs} from '@angular-devkit/core';
 import {TempScopedNodeJsSyncHost} from '@angular-devkit/core/node/testing';
 import {HostTree} from '@angular-devkit/schematics';
 import {SchematicTestRunner, UnitTestTree} from '@angular-devkit/schematics/testing/index.js';
-import {runfiles} from '@bazel/runfiles';
-import shx from 'shelljs';
+import {resolve} from 'node:path';
+import {rmSync} from 'node:fs';
 
 describe('standalone migration', () => {
   let runner: SchematicTestRunner;
@@ -32,8 +32,9 @@ describe('standalone migration', () => {
     return content.replace(/\s+/g, '');
   }
 
+  const collectionJsonPath = resolve('../collection.json');
   beforeEach(() => {
-    runner = new SchematicTestRunner('test', runfiles.resolvePackageRelative('../collection.json'));
+    runner = new SchematicTestRunner('test', collectionJsonPath);
     host = new TempScopedNodeJsSyncHost();
     tree = new UnitTestTree(new HostTree(host));
 
@@ -181,17 +182,17 @@ describe('standalone migration', () => {
       fakeCatalyst,
     );
 
-    previousWorkingDir = shx.pwd();
+    previousWorkingDir = process.cwd();
     tmpDirPath = getSystemPath(host.root);
 
     // Switch into the temporary directory path. This allows us to run
     // the schematic against our custom unit test tree.
-    shx.cd(tmpDirPath);
+    process.chdir(tmpDirPath);
   });
 
   afterEach(() => {
-    shx.cd(previousWorkingDir);
-    shx.rm('-r', tmpDirPath);
+    process.chdir(previousWorkingDir);
+    rmSync(tmpDirPath, {recursive: true});
   });
 
   it('should throw an error if no files match the passed-in path', async () => {
@@ -5033,6 +5034,92 @@ describe('standalone migration', () => {
       bootstrapApplication(AppComponent, {
         providers: [provideProtractorTestingSupport()]
       }).catch(e => console.error(e));
+    `),
+    );
+  });
+
+  it('should add handle import aliases to the same module name', async () => {
+    writeFile(
+      './app/comp.ts',
+      `
+      import { Component, NgModule } from '@angular/core';
+      import { AnotherModule } from '../another/another';
+      import { AnotherModule as LegacyAnotherModule } from '../another/another-legacy';
+
+      @Component({
+        selector: 'my-comp',
+        template: '<another1 /> <another2 />',
+        standalone: false
+      })
+      export class MyComponent {}
+
+      @NgModule({
+        imports: [AnotherModule, LegacyAnotherModule],
+        declarations: [MyComponent],
+        exports: [MyComponent]
+      })
+      export class MyModule {}
+
+    `,
+    );
+
+    writeFile(
+      './another/another.ts',
+      `
+      import { Component, NgModule } from '@angular/core';
+
+      @Component({
+        selector: 'another1',
+        template: 'another1',
+        standalone: false
+      })
+      export class AnotherComponent {}
+
+      @NgModule({
+        declarations: [AnotherComponent],
+        exports: [AnotherComponent]
+      })
+      export class AnotherModule {}
+
+    `,
+    );
+
+    writeFile(
+      './another/another-legacy.ts',
+      `
+      import { Component, NgModule } from '@angular/core';
+
+      @Component({
+        selector: 'another2',
+        template: 'another2',
+        standalone: false
+      })
+      export class AnotherComponent {}
+
+      @NgModule({
+        declarations: [AnotherComponent],
+        exports: [AnotherComponent]
+      })
+      export class AnotherModule {}
+
+    `,
+    );
+
+    await runMigration('convert-to-standalone', './app/');
+
+    const myCompContent = tree.readContent('app/comp.ts');
+
+    expect(myCompContent).toContain(`import { AnotherModule } from '../another/another';`);
+    expect(myCompContent).toContain(
+      `import { AnotherModule as LegacyAnotherModule } from '../another/another-legacy';`,
+    );
+    expect(stripWhitespace(myCompContent)).toContain(
+      stripWhitespace(`
+      @Component({
+        selector: 'my-comp',
+        template: '<another1 /> <another2 />',
+        imports: [AnotherModule, LegacyAnotherModule]
+      })
     `),
     );
   });

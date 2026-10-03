@@ -49,7 +49,7 @@ export class {{ClassName}} {
 When you update a component, be sure to put the logic in the ts file, the styles in the css file and the html template in the html file.
 
 ## Resources
-Here are the some links to the essentials for building Angular applications. Use these to get an understanding of how some of the core functionality works
+Here are some links to the essentials for building Angular applications. Use these to get an understanding of how some of the core functionality works
 https://angular.dev/essentials/components
 https://angular.dev/essentials/signals
 https://angular.dev/essentials/templates
@@ -68,10 +68,11 @@ Here is a link to the most recent Angular style guide https://angular.dev/style-
 
 ### Angular Best Practices
 - Always use standalone components over `NgModules`
-- Don't use explicit `standalone: true` (it is implied by default)
+- Do NOT set `standalone: true` inside the `@Component`, `@Directive` and `@Pipe` decorators
 - Use signals for state management
 - Implement lazy loading for feature routes
 - Use `NgOptimizedImage` for all static images.
+- Do NOT use the `@HostBinding` and `@HostListener` decorators. Put host bindings inside the `host` object of the `@Component` or `@Directive` decorator instead
 
 ### Components
 - Keep components small and focused on a single responsibility
@@ -82,12 +83,13 @@ Here is a link to the most recent Angular style guide https://angular.dev/style-
 - Prefer inline templates for small components
 - Prefer Reactive forms instead of Template-driven ones
 - Do NOT use `ngClass`, use `class` bindings instead, for context: https://angular.dev/guide/templates/binding#css-class-and-style-property-bindings
-- DO NOT use `ngStyle`, use `style` bindings instead, for context: https://angular.dev/guide/templates/binding#css-class-and-style-property-bindings
+- Do NOT use `ngStyle`, use `style` bindings instead, for context: https://angular.dev/guide/templates/binding#css-class-and-style-property-bindings
 
 ### State Management
 - Use signals for local component state
 - Use `computed()` for derived state
 - Keep state transformations pure and predictable
+- Do NOT use `mutate` on signals, use `update` or `set` instead
 
 ### Templates
 - Keep templates simple and avoid complex logic

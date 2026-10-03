@@ -285,6 +285,14 @@ describe('R3 template transform', () => {
         ['TextAttribute', 'select', 'a'],
       ]);
     });
+
+    it('should indicate whether an element is void', () => {
+      const nodes = parse('<input><div></div>').nodes as t.Element[];
+      expect(nodes[0].name).toBe('input');
+      expect(nodes[0].isVoid).toBe(true);
+      expect(nodes[1].name).toBe('div');
+      expect(nodes[1].isVoid).toBe(false);
+    });
   });
 
   describe('Bound text nodes', () => {
@@ -365,6 +373,61 @@ describe('R3 template transform', () => {
       expectFromHtml('<div [style.someStyle]="v"></div>').toEqual([
         ['Element', 'div'],
         ['BoundAttribute', BindingType.Style, 'someStyle', 'v'],
+      ]);
+    });
+
+    it('should parse class bindings with various characters', () => {
+      expectFromHtml(
+        `<foo [class.text-primary/80]="expr" ` +
+          `[class.data-active:text-green-300/80]="expr2" ` +
+          `[class.data-[size='large']:p-8] = "expr3" some-attr/>`,
+      ).toEqual([
+        ['Element', 'foo', '#selfClosing'],
+        ['TextAttribute', 'some-attr', ''],
+        ['BoundAttribute', BindingType.Class, 'text-primary/80', 'expr'],
+        ['BoundAttribute', BindingType.Class, 'data-active:text-green-300/80', 'expr2'],
+        ['BoundAttribute', BindingType.Class, `data-[size='large']:p-8`, 'expr3'],
+      ]);
+    });
+  });
+
+  describe('animation bindings', () => {
+    it('should support animate.enter', () => {
+      expectFromHtml('<div animate.enter="foo"></div>').toEqual([
+        ['Element', 'div'],
+        ['TextAttribute', 'animate.enter', 'foo'],
+      ]);
+
+      expectFromHtml(`<div [animate.enter]="['foo', 'bar']"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundAttribute', 6, 'animate.enter', '["foo", "bar"]'],
+      ]);
+
+      expectFromHtml(`<div (animate.enter)="animateFn($event)"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundEvent', 3, 'animate.enter', null, 'animateFn($event)'],
+      ]);
+    });
+
+    it('should support animate.leave', () => {
+      expectFromHtml('<div animate.leave="foo"></div>').toEqual([
+        ['Element', 'div'],
+        ['TextAttribute', 'animate.leave', 'foo'],
+      ]);
+
+      expectFromHtml(`<div [animate.leave]="['foo', 'bar']"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundAttribute', 6, 'animate.leave', '["foo", "bar"]'],
+      ]);
+
+      expectFromHtml(`<div (animate.leave)="animateFn($event)"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundEvent', 3, 'animate.leave', null, 'animateFn($event)'],
+      ]);
+
+      expectFromHtml(`<div (animateXYZ)="animateFn()"></div>`).toEqual([
+        ['Element', 'div'],
+        ['BoundEvent', 0, 'animateXYZ', null, 'animateFn()'],
       ]);
     });
   });
@@ -588,6 +651,10 @@ describe('R3 template transform', () => {
         'v + 1',
         'foo.bar?.baz',
         `foo.bar?.['baz']`,
+        'foo?.bar.baz[0]',
+        'foo?.bar.baz[0].boo[0]',
+        'foo?.bar.baz()',
+        '(foo?.bar).baz', // not null-safe and would crash at runtime, but may not report an error without `strictNullChecks`
         'true',
         '123',
         'a.b()',
@@ -610,6 +677,13 @@ describe('R3 template transform', () => {
         expect(() => parse(`<div [(prop)]="${expression}"></div>`))
           .withContext(expression)
           .toThrowError(/Unsupported expression in a two-way binding/);
+      }
+
+      const supportedExpressions = ['(foo?.bar ?? bar).baz'];
+      for (const expression of supportedExpressions) {
+        expect(() => parse(`<div [(prop)]="${expression}"></div>`))
+          .withContext(expression)
+          .not.toThrowError();
       }
     });
 
@@ -1711,7 +1785,7 @@ describe('R3 template transform', () => {
           `
               @switch (cond) {
                 @case (x()) {X case}
-                @foo {Foo}
+                @if (true) {Foo}
               }
             `,
           {ignoreError: true},
@@ -1721,7 +1795,7 @@ describe('R3 template transform', () => {
         expect(result.errors.map((e) => e.msg)).toEqual([
           '@switch block can only contain @case and @default blocks',
         ]);
-        expect(switchNode.unknownBlocks.map((b) => b.name)).toEqual(['foo']);
+        expect(switchNode.unknownBlocks.map((b) => b.name)).toEqual(['if']);
       });
 
       it('should report if @case or @default is used outside of a switch block', () => {
@@ -2317,6 +2391,24 @@ describe('R3 template transform', () => {
       ]);
     });
 
+    it('should parse an else if block with an aliased expression', () => {
+      expectFromHtml(`
+        @if (cond.expr; as foo) {
+          Main case was true!
+        } @else if (other.expr; as bar) {
+          Other case was true!
+        }
+        `).toEqual([
+        ['IfBlock'],
+        ['IfBlockBranch', 'cond.expr'],
+        ['Variable', 'foo', 'foo'],
+        ['Text', ' Main case was true! '],
+        ['IfBlockBranch', 'other.expr'],
+        ['Variable', 'bar', 'bar'],
+        ['Text', ' Other case was true! '],
+      ]);
+    });
+
     describe('validations', () => {
       it('should report an if block without a condition', () => {
         expect(() =>
@@ -2361,14 +2453,6 @@ describe('R3 template transform', () => {
           @if (foo) {hello} @else\nif (bar) {goodbye}
         `),
         ).toThrowError(/Unrecognized block @else\nif/);
-      });
-
-      it('should report an else if block that has an `as` expression', () => {
-        expect(() =>
-          parse(`
-          @if (foo) {hello} @else if (bar; as alias) {goodbye}
-        `),
-        ).toThrowError(/"as" expression is only allowed on the primary @if block/);
       });
 
       it('should report an @else if block used without an @if block', () => {
@@ -2426,12 +2510,6 @@ describe('R3 template transform', () => {
         `),
         ).toThrowError(/"as" expression must be a valid JavaScript identifier/);
       });
-    });
-  });
-
-  describe('unknown blocks', () => {
-    it('should parse unknown blocks', () => {
-      expectFromHtml('@unknown {}', true /* ignoreError */).toEqual([['UnknownBlock', 'unknown']]);
     });
   });
 
@@ -2586,7 +2664,7 @@ describe('R3 template transform', () => {
         ['Directive', 'Dir'],
         ['TextAttribute', 'a', '1'],
         ['BoundAttribute', 0, 'b', 'two'],
-        ['BoundAttribute', 5, 'd', 'd'],
+        ['BoundAttribute', BindingType.TwoWay, 'd', 'd'],
         ['BoundEvent', 0, 'c', null, 'c()'],
         ['BoundEvent', 2, 'dChange', null, 'd'],
       ]);
@@ -2692,5 +2770,20 @@ describe('R3 template transform', () => {
         expect(() => parseSelectorless('<div @Dir(#foo #foo)></div>')).toThrowError(pattern);
       });
     });
+  });
+
+  it('should report an error for attribute bindings on ng-container', () => {
+    const template = `<ng-container [attr.title]="'test'"></ng-container>`;
+    const errors = parse(template, {ignoreError: true}).errors;
+    expect(errors.length).toBe(1);
+    expect(errors[0].msg).toBe(
+      'Attribute bindings are not supported on ng-container. Use property bindings instead.',
+    );
+  });
+
+  it('should not report an error on non-attr bindings on ng-container', () => {
+    const template = `<ng-container *ngIf"test" [ngTemplateOutlet]="foo"></ng-container>`;
+    const errors = parse(template, {ignoreError: true}).errors;
+    expect(errors.length).toBe(0);
   });
 });

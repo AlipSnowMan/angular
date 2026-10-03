@@ -234,6 +234,18 @@ class HtmlAstToIvyAst implements html.Visitor {
         parsedProperties,
         i18nAttrsMeta,
       );
+
+      if (element.name === 'ng-container') {
+        for (const bound of attrs.bound) {
+          if (bound.type === BindingType.Attribute) {
+            this.reportError(
+              `Attribute bindings are not supported on ng-container. Use property bindings instead.`,
+              bound.sourceSpan,
+            );
+          }
+        }
+      }
+
       parsedElement = new t.Element(
         element.name,
         attributes,
@@ -246,6 +258,7 @@ class HtmlAstToIvyAst implements html.Visitor {
         element.sourceSpan,
         element.startSourceSpan,
         element.endSourceSpan,
+        element.isVoid,
         element.i18n,
       );
     }
@@ -630,11 +643,11 @@ class HtmlAstToIvyAst implements html.Visitor {
 
         const parsedVariables: ParsedVariable[] = [];
         const absoluteValueOffset = attribute.valueSpan
-          ? attribute.valueSpan.start.offset
+          ? attribute.valueSpan.fullStart.offset
           : // If there is no value span the attribute does not have a value, like `attr` in
             //`<div attr></div>`. In this case, point to one character beyond the last character of
             // the attribute name.
-            attribute.sourceSpan.start.offset + attribute.name.length;
+            attribute.sourceSpan.fullStart.offset + attribute.name.length;
 
         this.bindingParser.parseInlineTemplateBinding(
           templateKey,
@@ -696,8 +709,8 @@ class HtmlAstToIvyAst implements html.Visitor {
     const value = attribute.value;
     const srcSpan = attribute.sourceSpan;
     const absoluteOffset = attribute.valueSpan
-      ? attribute.valueSpan.start.offset
-      : srcSpan.start.offset;
+      ? attribute.valueSpan.fullStart.offset
+      : srcSpan.fullStart.offset;
 
     function createKeySpan(srcSpan: ParseSourceSpan, prefix: string, identifier: string) {
       // We need to adjust the start location for the keySpan to account for the removed 'data-'
@@ -776,6 +789,7 @@ class HtmlAstToIvyAst implements html.Visitor {
           matchableAttributes,
           boundEvents,
           keySpan,
+          absoluteOffset,
         );
       } else if (bindParts[KW_AT_IDX]) {
         const keySpan = createKeySpan(srcSpan, '', name);
@@ -835,6 +849,7 @@ class HtmlAstToIvyAst implements html.Visitor {
           matchableAttributes,
           boundEvents,
           keySpan,
+          absoluteOffset,
         );
       } else if (delims.start === BINDING_DELIMS.PROPERTY.start) {
         this.bindingParser.parsePropertyBinding(
@@ -958,6 +973,14 @@ class HtmlAstToIvyAst implements html.Visitor {
     return directives;
   }
 
+  private filterAnimationAttributes(attributes: t.TextAttribute[]): t.TextAttribute[] {
+    return attributes.filter((a) => !a.name.startsWith('animate.'));
+  }
+
+  private filterAnimationInputs(attributes: t.BoundAttribute[]): t.BoundAttribute[] {
+    return attributes.filter((a) => a.type !== BindingType.Animation);
+  }
+
   private wrapInTemplate(
     node: t.Element | t.Component | t.Content | t.Template,
     templateProperties: ParsedProperty[],
@@ -983,8 +1006,8 @@ class HtmlAstToIvyAst implements html.Visitor {
     };
 
     if (node instanceof t.Element || node instanceof t.Component) {
-      hoistedAttrs.attributes.push(...node.attributes);
-      hoistedAttrs.inputs.push(...node.inputs);
+      hoistedAttrs.attributes.push(...this.filterAnimationAttributes(node.attributes));
+      hoistedAttrs.inputs.push(...this.filterAnimationInputs(node.inputs));
       hoistedAttrs.outputs.push(...node.outputs);
     }
 
@@ -1079,6 +1102,7 @@ class HtmlAstToIvyAst implements html.Visitor {
     targetMatchableAttrs: string[][],
     boundEvents: t.BoundEvent[],
     keySpan: ParseSourceSpan,
+    absoluteOffset: number,
   ) {
     const events: ParsedEvent[] = [];
     this.bindingParser.parseEvent(
@@ -1151,6 +1175,7 @@ class NonBindableVisitor implements html.Visitor {
       ast.sourceSpan,
       ast.startSourceSpan,
       ast.endSourceSpan,
+      ast.isVoid,
     );
   }
 
@@ -1218,6 +1243,7 @@ class NonBindableVisitor implements html.Visitor {
       ast.sourceSpan,
       ast.startSourceSpan,
       ast.endSourceSpan,
+      false,
     );
   }
 

@@ -3,14 +3,19 @@
 @if (currentSelectedElement) {
   <ng-property-tab-header
     [currentSelectedElement]="currentSelectedElement"
-    [signalGraphEnabled]="signalGraphEnabled()"
     (showSignalGraph)="showSignalGraph.emit(null)"
   />
-  <ng-property-tab-body
-    (inspect)="inspect.emit($event)"
-    (viewSource)="viewSource.emit($event)"
-    [currentSelectedElement]="currentSelectedElement"
-  />
+
+  <div class="explorer-panel">
+    @for (directive of currentDirectives(); track $index) {
+      <ng-property-view
+        (inspect)="inspect.emit($event)"
+        (viewSource)="viewSource.emit(directive.name)"
+        (showSignalGraph)="showSignalGraph.emit($event)"
+        [directive]="directive"
+      />
+    }
+  </div>
 
   @let hydration = currentSelectedElement.hydration;
   @if (hydration && hydration.status === 'dehydrated') {

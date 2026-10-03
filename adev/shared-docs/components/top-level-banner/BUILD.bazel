@@ -1,5 +1,4 @@
-load("//adev/shared-docs:defaults.bzl", "ng_project", "ts_project")
-load("//tools:defaults2.bzl", "ng_web_test_suite", "sass_binary")
+load("//adev/shared-docs:defaults.bzl", "ng_project", "sass_binary", "ts_project", "zoneless_web_test_suite")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -16,11 +15,11 @@ ng_project(
         "//adev/shared-docs/components:__pkg__",
     ],
     deps = [
-        "//adev/shared-docs/components/icon:icon_rjs",
-        "//adev/shared-docs/directives:directives_rjs",
-        "//adev/shared-docs/providers:providers_rjs",
-        "//packages/common:common_rjs",
-        "//packages/core:core_rjs",
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
+        "//adev/shared-docs/components/icon",
+        "//adev/shared-docs/directives",
+        "//adev/shared-docs/providers",
     ],
 )
 
@@ -36,14 +35,13 @@ ts_project(
         ["*.spec.ts"],
     ),
     deps = [
-        ":top-level-banner_rjs",
-        "//adev/shared-docs/providers:providers_rjs",
-        "//packages/core:core_rjs",
-        "//packages/core/testing:testing_rjs",
+        ":top-level-banner",
+        "//adev:node_modules/@angular/core",
+        "//adev/shared-docs/providers",
     ],
 )
 
-ng_web_test_suite(
+zoneless_web_test_suite(
     name = "test",
-    deps = [":test_lib_rjs"],
+    deps = [":test_lib"],
 )

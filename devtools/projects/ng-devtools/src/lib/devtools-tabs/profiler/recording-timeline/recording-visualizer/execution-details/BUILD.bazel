@@ -1,5 +1,4 @@
-load("//devtools/tools:ng_project.bzl", "ng_project")
-load("//tools:defaults2.bzl", "sass_binary")
+load("//devtools/tools:defaults.bzl", "ng_project", "sass_binary")
 
 package(default_visibility = ["//devtools:__subpackages__"])
 
@@ -17,10 +16,8 @@ ng_project(
         "execution-details.component.html",
         ":execution-details_styles",
     ],
-    interop_deps = [
-        "//packages/core",
-    ],
     deps = [
-        "//devtools/projects/ng-devtools/src/lib/devtools-tabs/profiler/recording-timeline/recording-visualizer:recording-visualizer-types_rjs",
+        "//:node_modules/@angular/core",
+        "//devtools/projects/ng-devtools/src/lib/devtools-tabs/profiler/recording-timeline/recording-visualizer:recording-visualizer-types",
     ],
 )

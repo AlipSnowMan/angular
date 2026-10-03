@@ -1,11 +1,12 @@
-load("@devinfra//bazel/spec-bundling:index_rjs.bzl", "spec_bundle")
-load("@rules_browsers//src/wtr:index.bzl", "wtr_test")
+load("@devinfra//bazel/spec-bundling:index.bzl", "spec_bundle")
+load("@rules_browsers//wtr:index.bzl", "wtr_test")
 
-def _web_test(name, tags = [], deps = [], bootstrap = [], **kwargs):
+def web_test(name, tags = [], deps = [], bootstrap = [], tsconfig = "//packages:tsconfig_build", **kwargs):
     spec_bundle(
         name = "%s_bundle" % name,
         testonly = True,
-        srcs = ["//packages:tsconfig_build"],
+        srcs = [tsconfig],
+        tsconfig = tsconfig,
         bootstrap = bootstrap,
         deps = deps,
         tags = [
@@ -13,7 +14,6 @@ def _web_test(name, tags = [], deps = [], bootstrap = [], **kwargs):
         ],
         config = {
             "resolveExtensions": [".js", ".mjs"],
-            "tsconfig": "./packages/tsconfig-build.json",
         },
         platform = "browser",
         external = kwargs.pop("external", []),
@@ -27,19 +27,19 @@ def _web_test(name, tags = [], deps = [], bootstrap = [], **kwargs):
     )
 
 def ng_web_test_suite(deps = [], bootstrap = [], **kwargs):
-    _web_test(
+    web_test(
         deps = deps,
         bootstrap = [
-            "//tools/testing:browser_rjs",
+            "//tools/testing:browser",
         ] + bootstrap,
         **kwargs
     )
 
 def zoneless_web_test_suite(deps = [], bootstrap = [], **kwargs):
-    _web_test(
+    web_test(
         deps = deps,
         bootstrap = [
-            "//tools/testing:browser_zoneless_rjs",
+            "//tools/testing:browser_zoneless",
         ] + bootstrap,
         **kwargs
     )

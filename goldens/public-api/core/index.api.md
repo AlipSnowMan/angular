@@ -82,6 +82,15 @@ export interface AfterViewInit {
 export const ANIMATION_MODULE_TYPE: InjectionToken<"NoopAnimations" | "BrowserAnimations">;
 
 // @public
+export type AnimationCallbackEvent = {
+    target: Element;
+    animationComplete: Function;
+};
+
+// @public
+export type AnimationFunction = (event: AnimationCallbackEvent) => void;
+
+// @public
 export const APP_BOOTSTRAP_LISTENER: InjectionToken<readonly ((compRef: ComponentRef<any>) => void)[]>;
 
 // @public
@@ -188,12 +197,13 @@ export interface Binding {
 // @public
 export function booleanAttribute(value: unknown): boolean;
 
-// @public
+// @public @deprecated
 export interface BootstrapOptions {
     // @deprecated
-    ignoreChangesOutsideZone?: boolean;
     ngZone?: NgZone | 'zone.js' | 'noop';
+    // @deprecated
     ngZoneEventCoalescing?: boolean;
+    // @deprecated
     ngZoneRunCoalescing?: boolean;
 }
 
@@ -257,14 +267,11 @@ export type CompilerOptions = {
 
 // @public
 export interface Component extends Directive {
+    // @deprecated
     animations?: any[];
     changeDetection?: ChangeDetectionStrategy;
     encapsulation?: ViewEncapsulation;
     imports?: (Type<any> | ReadonlyArray<any>)[];
-    // @deprecated
-    interpolation?: [string, string];
-    // @deprecated
-    moduleId?: string;
     preserveWhitespaces?: boolean;
     schemas?: SchemaMetadata[];
     standalone?: boolean;
@@ -579,9 +586,6 @@ export class DefaultIterableDiffer<V> implements IterableDiffer<V>, IterableChan
     onDestroy(): void;
 }
 
-// @public @deprecated (undocumented)
-export const defineInjectable: typeof ɵɵdefineInjectable;
-
 // @public
 export interface DestroyableInjector extends Injector {
     // (undocumented)
@@ -830,9 +834,6 @@ export interface HostListenerDecorator {
     // (undocumented)
     new (eventName: string, args?: string[]): any;
 }
-
-// @public @deprecated
-export type ImportedNgModuleProviders = EnvironmentProviders;
 
 // @public
 export function importProvidersFrom(...sources: ImportProvidersSource[]): EnvironmentProviders;
@@ -1143,6 +1144,7 @@ export function linkedSignal<S, D>(options: {
         value: NoInfer<D>;
     }) => D;
     equal?: ValueEqualityFn<NoInfer<D>>;
+    debugName?: string;
 }): WritableSignal<D>;
 
 // @public
@@ -1163,6 +1165,9 @@ export function makeEnvironmentProviders(providers: (Provider | EnvironmentProvi
 
 // @public
 export function makeStateKey<T = void>(key: string): StateKey<T>;
+
+// @public
+export const MAX_ANIMATION_TIMEOUT: InjectionToken<number>;
 
 // @public
 export function mergeApplicationConfig(...configs: ApplicationConfig[]): ApplicationConfig;
@@ -1262,15 +1267,6 @@ export abstract class NgModuleRef<T> {
     abstract onDestroy(callback: () => void): void;
 }
 
-// @public @deprecated
-export class NgProbeToken {
-    constructor(name: string, token: any);
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    token: any;
-}
-
 // @public
 export class NgZone {
     constructor(options: {
@@ -1299,8 +1295,6 @@ export class NgZone {
 // @public
 export interface NgZoneOptions {
     eventCoalescing?: boolean;
-    // @deprecated
-    ignoreChangesOutsideZone?: boolean;
     runCoalescing?: boolean;
 }
 
@@ -1384,9 +1378,6 @@ export interface OutputRefSubscription {
     // (undocumented)
     unsubscribe(): void;
 }
-
-// @public @deprecated
-export const PACKAGE_ROOT_URL: InjectionToken<string>;
 
 // @public
 export class PendingTasks {
@@ -1563,7 +1554,7 @@ export abstract class Renderer2 {
     abstract nextSibling(node: any): any;
     abstract parentNode(node: any): any;
     abstract removeAttribute(el: any, name: string, namespace?: string | null): void;
-    abstract removeChild(parent: any, oldChild: any, isHostElement?: boolean): void;
+    abstract removeChild(parent: any, oldChild: any, isHostElement?: boolean, requireSynchronousElementRemoval?: boolean): void;
     abstract removeClass(el: any, name: string): void;
     abstract removeStyle(el: any, style: string, flags?: RendererStyleFlags2): void;
     abstract selectRootElement(selectorOrNode: string | any, preserveContent?: boolean): any;
@@ -1610,7 +1601,9 @@ export function resolveForwardRef<T>(type: T): T;
 // @public
 export interface Resource<T> {
     readonly error: Signal<Error | undefined>;
-    hasValue(): this is Resource<Exclude<T, undefined>>;
+    hasValue(this: T extends undefined ? this : never): this is Resource<Exclude<T, undefined>>;
+    // (undocumented)
+    hasValue(): boolean;
     readonly isLoading: Signal<boolean>;
     readonly status: Signal<ResourceStatus>;
     readonly value: Signal<T>;
@@ -1646,7 +1639,9 @@ export type ResourceOptions<T, R> = PromiseResourceOptions<T, R> | StreamingReso
 export interface ResourceRef<T> extends WritableResource<T> {
     destroy(): void;
     // (undocumented)
-    hasValue(): this is ResourceRef<Exclude<T, undefined>>;
+    hasValue(this: T extends undefined ? this : never): this is ResourceRef<Exclude<T, undefined>>;
+    // (undocumented)
+    hasValue(): boolean;
 }
 
 // @public
@@ -2006,6 +2001,7 @@ export abstract class ViewContainerRef {
 // @public
 export enum ViewEncapsulation {
     Emulated = 0,
+    IsolatedShadowDom = 4,
     None = 2,
     ShadowDom = 3
 }
@@ -2022,7 +2018,9 @@ export interface WritableResource<T> extends Resource<T> {
     // (undocumented)
     asReadonly(): Resource<T>;
     // (undocumented)
-    hasValue(): this is WritableResource<Exclude<T, undefined>>;
+    hasValue(this: T extends undefined ? this : never): this is WritableResource<Exclude<T, undefined>>;
+    // (undocumented)
+    hasValue(): boolean;
     reload(): boolean;
     set(value: T): void;
     update(updater: (value: T) => T): void;

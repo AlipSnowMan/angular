@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "jasmine_test", "ts_project")
+load("//tools:defaults.bzl", "jasmine_test", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,20 +8,18 @@ ts_project(
     srcs = glob([
         "**/*.ts",
     ]),
-    interop_deps = [
+    deps = [
+        "//:node_modules/typescript",
         "//packages:types",
         "//packages/compiler-cli/src/ngtsc/entry_point",
         "//packages/compiler-cli/src/ngtsc/file_system",
         "//packages/compiler-cli/src/ngtsc/file_system/testing",
-    ],
-    deps = [
-        "//:node_modules/typescript",
     ],
 )
 
 jasmine_test(
     name = "test",
     data = [
-        ":test_lib_rjs",
+        ":test_lib",
     ],
 )

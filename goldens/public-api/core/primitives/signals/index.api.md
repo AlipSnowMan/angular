@@ -5,6 +5,21 @@
 ```ts
 
 // @public (undocumented)
+export const BASE_EFFECT_NODE: Omit<BaseEffectNode, 'fn' | 'destroy' | 'cleanup' | 'run'>;
+
+// @public (undocumented)
+export interface BaseEffectNode extends ReactiveNode {
+    // (undocumented)
+    cleanup(): void;
+    // (undocumented)
+    destroy(): void;
+    // (undocumented)
+    fn: () => void;
+    // (undocumented)
+    run(): void;
+}
+
+// @public (undocumented)
 export type ComputationFn<S, D> = (source: S, previous?: {
     source: S;
     value: D;
@@ -48,6 +63,9 @@ export function createWatch(fn: (onCleanup: WatchCleanupRegisterFn) => void, sch
 
 // @public
 export function defaultEquals<T>(a: T, b: T): boolean;
+
+// @public
+export function finalizeConsumerAfterComputation(node: ReactiveNode): void;
 
 // @public (undocumented)
 export function getActiveConsumer(): ReactiveNode | null;
@@ -118,21 +136,27 @@ export interface ReactiveNode {
     // (undocumented)
     consumerMarkedDirty(node: unknown): void;
     consumerOnSignalRead(node: unknown): void;
+    consumers: ReactiveLink | undefined;
+    // (undocumented)
+    consumersTail: ReactiveLink | undefined;
     debugName?: string;
     dirty: boolean;
     kind: string;
     lastCleanEpoch: Version;
-    liveConsumerIndexOfThis: number[] | undefined;
-    liveConsumerNode: ReactiveNode[] | undefined;
-    nextProducerIndex: number;
-    producerIndexOfThis: number[] | undefined;
-    producerLastReadVersion: Version[] | undefined;
     producerMustRecompute(node: unknown): boolean;
-    producerNode: ReactiveNode[] | undefined;
     // (undocumented)
     producerRecomputeValue(node: unknown): void;
+    producers: ReactiveLink | undefined;
+    producersTail: ReactiveLink | undefined;
+    recomputing: boolean;
     version: Version;
 }
+
+// @public
+export function resetConsumerBeforeComputation(node: ReactiveNode): void;
+
+// @public (undocumented)
+export function runEffect(node: BaseEffectNode): void;
 
 // @public (undocumented)
 export function runPostProducerCreatedFn(node: ReactiveNode): void;

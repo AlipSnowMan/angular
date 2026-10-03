@@ -12,6 +12,7 @@ import * as ir from '../../ir';
 import {CompilationJob} from '../compilation';
 
 const CHAIN_COMPATIBILITY = new Map<o.ExternalReference, o.ExternalReference>([
+  [R3.ariaProperty, R3.ariaProperty],
   [R3.attribute, R3.attribute],
   [R3.classProp, R3.classProp],
   [R3.element, R3.element],
@@ -42,6 +43,10 @@ const CHAIN_COMPATIBILITY = new Map<o.ExternalReference, o.ExternalReference>([
   [R3.domElementContainerEnd, R3.domElementContainerEnd],
   [R3.domListener, R3.domListener],
   [R3.domTemplate, R3.domTemplate],
+  [R3.animationEnter, R3.animationEnter],
+  [R3.animationLeave, R3.animationLeave],
+  [R3.animationEnterListener, R3.animationEnterListener],
+  [R3.animationLeaveListener, R3.animationLeaveListener],
 ]);
 
 /**

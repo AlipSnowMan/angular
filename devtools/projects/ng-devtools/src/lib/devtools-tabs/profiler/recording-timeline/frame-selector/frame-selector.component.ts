@@ -13,6 +13,7 @@ import {
 } from '@angular/cdk/scrolling';
 import {
   afterRenderEffect,
+  ChangeDetectionStrategy,
   Component,
   computed,
   ElementRef,
@@ -70,6 +71,7 @@ function framesBoundSignal<T>(source: Signal<ProfilerFrame[]>, defaultValue: T) 
     ButtonComponent,
     DecimalPipe,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FrameSelectorComponent {
   private readonly tabUpdate = inject(TabUpdate);
@@ -246,6 +248,10 @@ export class FrameSelectorComponent {
     const dx = event.clientX - this._viewportScrollState.xCoordinate;
     this.viewport().elementRef.nativeElement.scrollLeft =
       this._viewportScrollState.scrollLeft - dx * DRAG_SCROLL_SPEED;
+  }
+
+  trackByIndex(index: number): number {
+    return index;
   }
 
   private getBarStyles(frame: ProfilerFrame, multiplicationFactor: number): GraphNode {

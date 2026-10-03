@@ -1,5 +1,4 @@
-load("//adev/shared-docs:defaults.bzl", "ng_project")
-load("//tools:defaults2.bzl", "sass_binary")
+load("//adev/shared-docs:defaults.bzl", "ng_project", "sass_binary")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -21,8 +20,8 @@ ng_project(
         "//adev/shared-docs/components/viewers:__pkg__",
     ],
     deps = [
-        "//packages/common:common_rjs",
-        "//packages/core:core_rjs",
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
     ],
 )
 

@@ -43,7 +43,7 @@ export class AppScroller {
           this._lastScrollEvent = e;
         }),
         filter(() => {
-          const info = this.router.lastSuccessfulNavigation?.extras.info as Record<
+          const info = this.router.lastSuccessfulNavigation()?.extras.info as Record<
             'disableScrolling',
             boolean
           >;
@@ -61,6 +61,10 @@ export class AppScroller {
       .subscribe(() => {
         this.scroll();
       });
+
+    // This value is primarily intended to offset the scroll position on mobile when the menu is on the top.
+    // But on desktop, it doesn't hurt to have a small offset either.
+    this.viewportScroller.setOffset([0, 64]);
   }
 
   scroll(injector?: Injector) {

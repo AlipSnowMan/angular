@@ -1,5 +1,5 @@
-load("@devinfra//bazel/spec-bundling:index_rjs.bzl", "spec_bundle")
-load("@rules_browsers//src/protractor_test:index.bzl", "protractor_test")
+load("@devinfra//bazel/spec-bundling:index.bzl", "spec_bundle")
+load("@rules_browsers//protractor_test:index.bzl", "protractor_test")
 
 """
   Macro that can be used to define a e2e test in `modules/benchmarks`. Targets created through
@@ -36,7 +36,7 @@ def benchmark_test(name, deps = [], server = None, tags = []):
         ],
         data = [
             "//modules:node_modules/@angular/benchpress",
-            "//:node_modules/tslib",
+            "//modules:node_modules/tslib",
             "//modules:node_modules/protractor",
             "//modules:node_modules/selenium-webdriver",
         ],

@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "ng_web_test_suite", "ts_project")
+load("//tools:defaults.bzl", "ng_web_test_suite", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,15 +8,13 @@ ts_project(
     srcs = glob([
         "**/*.ts",
     ]),
-    interop_deps = [
+    deps = [
         "//packages/core",
         "//packages/core/testing",
         "//packages/upgrade/src/common",
-    ],
-    deps = [
-        "//packages/upgrade/src/common/test/helpers:helpers_rjs",
-        "//packages/upgrade/static:static_rjs",
-        "//packages/upgrade/static/testing:testing_rjs",
+        "//packages/upgrade/src/common/test/helpers",
+        "//packages/upgrade/static",
+        "//packages/upgrade/static/testing",
     ],
 )
 
@@ -26,6 +24,6 @@ ng_web_test_suite(
         "//:angularjs_scripts",
     ],
     deps = [
-        ":test_lib_rjs",
+        ":test_lib",
     ],
 )

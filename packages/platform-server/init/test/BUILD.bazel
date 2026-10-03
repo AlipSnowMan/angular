@@ -1,20 +1,18 @@
-load("//tools:defaults2.bzl", "jasmine_test", "ts_project")
+load("//tools:defaults.bzl", "jasmine_test", "ts_project")
 
 ts_project(
     name = "test_lib",
     testonly = True,
     srcs = glob(["**/*.ts"]),
-    interop_deps = [
-        "//packages/platform-server/init:bundled_domino_lib",
-    ],
     deps = [
-        "//packages/platform-server/init:init_rjs",
+        "//packages/platform-server/init",
+        "//packages/platform-server/init:bundled_domino_lib",
     ],
 )
 
 jasmine_test(
     name = "test",
     data = [
-        ":test_lib_rjs",
+        ":test_lib",
     ],
 )

@@ -1,5 +1,4 @@
-load("//tools:defaults.bzl", "api_golden_test", "api_golden_test_npm_package", "generate_api_docs")
-load("//tools:defaults2.bzl", "ng_package", "ng_project", "npm_package")
+load("//tools:defaults.bzl", "api_golden_test", "api_golden_test_npm_package", "generate_api_docs", "ng_package", "ng_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,16 +10,12 @@ ng_project(
             "src/**/*.ts",
         ],
     ),
-    interop_deps = [
-        "//packages/common",
-    ],
     deps = [
-        "//packages/core:core_rjs",
+        "//packages/core",
     ],
 )
 
 ng_package(
-    name = "npm_package",
     srcs = [
         "package.json",
     ],
@@ -38,20 +33,10 @@ ng_package(
         "//packages/compiler/test:__pkg__",
     ],
     deps = [
-        ":animations_rjs",
-        "//packages/animations/browser:browser_rjs",
-        "//packages/animations/browser/testing:testing_rjs",
+        ":animations",
+        "//packages/animations/browser",
+        "//packages/animations/browser/testing",
     ],
-)
-
-# TODO(devversion): Temporary early `npm_package` for making this package usable in `core/test/bundling`.
-# Long-term, `pkg_npm` will be migrated to `npm_package` in general.
-npm_package(
-    name = "pkg",
-    srcs = [":npm_package"],
-    replace_prefixes = {
-        "npm_package/": "",
-    },
 )
 
 api_golden_test_npm_package(
@@ -60,8 +45,8 @@ api_golden_test_npm_package(
         ":npm_package",
         "//goldens:public-api",
     ],
-    golden_dir = "angular/goldens/public-api/animations",
-    npm_package = "angular/packages/animations/npm_package",
+    golden_dir = "goldens/public-api/animations",
+    npm_package = "packages/animations/npm_package",
 )
 
 api_golden_test(
@@ -69,10 +54,9 @@ api_golden_test(
     data = [
         "//goldens:public-api",
         "//packages/animations",
-        "//packages/animations/browser",
     ],
-    entry_point = "angular/packages/animations/src/errors.d.ts",
-    golden = "angular/goldens/public-api/animations/errors.api.md",
+    entry_point = "src/errors.d.ts",
+    golden = "goldens/public-api/animations/errors.api.md",
 )
 
 filegroup(
@@ -87,8 +71,6 @@ generate_api_docs(
     name = "animations_docs",
     srcs = [
         ":files_for_docgen",
-        "//packages:common_files_and_deps_for_docs",
-        "//packages/common:files_for_docgen",
     ],
     entry_point = ":index.ts",
     module_name = "@angular/animations",

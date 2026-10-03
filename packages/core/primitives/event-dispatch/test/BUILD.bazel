@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "ng_web_test_suite", "ts_project")
+load("//tools:defaults.bzl", "ng_web_test_suite", "ts_project")
 
 ts_project(
     name = "browser_test_lib",
@@ -8,15 +8,12 @@ ts_project(
             "**/*.ts",
         ],
     ),
-    interop_deps = [
-        "//packages/private/testing",
-    ],
     deps = [
-        "//packages/core/primitives/event-dispatch:event-dispatch_rjs",
+        "//packages/core/primitives/event-dispatch",
     ],
 )
 
 ng_web_test_suite(
     name = "browser_test",
-    deps = [":browser_test_lib_rjs"],
+    deps = [":browser_test_lib"],
 )

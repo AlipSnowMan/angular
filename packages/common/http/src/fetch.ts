@@ -17,15 +17,9 @@ import {
 import {Observable, Observer} from 'rxjs';
 import {RuntimeErrorCode} from './errors';
 
-import {HttpBackend} from './backend';
+import type {HttpBackend} from './backend';
 import {HttpHeaders} from './headers';
-import {
-  ACCEPT_HEADER,
-  ACCEPT_HEADER_VALUE,
-  CONTENT_TYPE_HEADER,
-  HttpRequest,
-  X_REQUEST_URL_HEADER,
-} from './request';
+import {ACCEPT_HEADER, ACCEPT_HEADER_VALUE, CONTENT_TYPE_HEADER, HttpRequest} from './request';
 import {
   HTTP_STATUS_CODE_OK,
   HttpDownloadProgressEvent,
@@ -40,19 +34,6 @@ import {
 import type {} from 'zone.js';
 
 const XSSI_PREFIX = /^\)\]\}',?\n/;
-
-/**
- * Determine an appropriate URL for the response, by checking either
- * response url or the X-Request-URL header.
- */
-function getResponseUrl(response: Response): string | null {
-  if (response.url) {
-    return response.url;
-  }
-  // stored as lowercase in the map
-  const xRequestUrl = X_REQUEST_URL_HEADER.toLocaleLowerCase();
-  return response.headers.get(xRequestUrl);
-}
 
 /**
  * An internal injection token to reference `FetchBackend` implementation
@@ -159,7 +140,7 @@ export class FetchBackend implements HttpBackend {
 
     const headers = new HttpHeaders(response.headers);
     const statusText = response.statusText;
-    const url = getResponseUrl(response) ?? request.urlWithParams;
+    const url = response.url || request.urlWithParams;
 
     let status = response.status;
     let body: string | ArrayBuffer | Blob | object | null = null;
@@ -244,7 +225,7 @@ export class FetchBackend implements HttpBackend {
       const chunksAll = this.concatChunks(chunks, receivedLength);
       try {
         const contentType = response.headers.get(CONTENT_TYPE_HEADER) ?? '';
-        body = this.parseBody(request, chunksAll, contentType);
+        body = this.parseBody(request, chunksAll, contentType, status);
       } catch (error) {
         // Body loading or parsing failed
         observer.error(
@@ -253,7 +234,7 @@ export class FetchBackend implements HttpBackend {
             headers: new HttpHeaders(response.headers),
             status: response.status,
             statusText: response.statusText,
-            url: getResponseUrl(response) ?? request.urlWithParams,
+            url: response.url || request.urlWithParams,
           }),
         );
         return;
@@ -271,6 +252,10 @@ export class FetchBackend implements HttpBackend {
     // asked for JSON data and the body cannot be parsed as such.
     const ok = status >= 200 && status < 300;
 
+    const redirected = response.redirected;
+
+    const responseType = response.type;
+
     if (ok) {
       observer.next(
         new HttpResponse({
@@ -279,6 +264,8 @@ export class FetchBackend implements HttpBackend {
           status,
           statusText,
           url,
+          redirected,
+          responseType,
         }),
       );
 
@@ -293,6 +280,8 @@ export class FetchBackend implements HttpBackend {
           status,
           statusText,
           url,
+          redirected,
+          responseType,
         }),
       );
     }
@@ -300,14 +289,29 @@ export class FetchBackend implements HttpBackend {
 
   private parseBody(
     request: HttpRequest<any>,
-    binContent: Uint8Array,
+    binContent: Uint8Array<ArrayBuffer>,
     contentType: string,
+    status: number,
   ): string | ArrayBuffer | Blob | object | null {
     switch (request.responseType) {
       case 'json':
         // stripping the XSSI when present
         const text = new TextDecoder().decode(binContent).replace(XSSI_PREFIX, '');
-        return text === '' ? null : (JSON.parse(text) as object);
+        if (text === '') {
+          return null;
+        }
+        try {
+          return JSON.parse(text) as object;
+        } catch (e: unknown) {
+          // Allow handling non-JSON errors (!) as plain text, same as the XHR
+          // backend. Without this special sauce, any non-JSON error would be
+          // completely inaccessible downstream as the `HttpErrorResponse.error`
+          // would be set to the `SyntaxError` from then failing `JSON.parse`.
+          if (status < 200 || status >= 300) {
+            return text;
+          }
+          throw e;
+        }
       case 'text':
         return new TextDecoder().decode(binContent);
       case 'blob':
@@ -361,10 +365,12 @@ export class FetchBackend implements HttpBackend {
       priority: req.priority,
       mode: req.mode,
       redirect: req.redirect,
+      referrer: req.referrer,
+      integrity: req.integrity,
     };
   }
 
-  private concatChunks(chunks: Uint8Array[], totalLength: number): Uint8Array {
+  private concatChunks(chunks: Uint8Array[], totalLength: number): Uint8Array<ArrayBuffer> {
     const chunksAll = new Uint8Array(totalLength);
     let position = 0;
     for (const chunk of chunks) {

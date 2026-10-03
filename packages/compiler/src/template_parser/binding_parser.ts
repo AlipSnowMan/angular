@@ -18,18 +18,20 @@ import {
   ImplicitReceiver,
   KeyedRead,
   NonNullAssert,
+  ParenthesizedExpression,
   ParsedEvent,
   ParsedEventType,
   ParsedProperty,
   ParsedPropertyType,
   ParsedVariable,
   PropertyRead,
+  SafeKeyedRead,
+  SafePropertyRead,
   TemplateBinding,
   ThisReceiver,
   VariableBinding,
 } from '../expression_parser/ast';
 import {Parser} from '../expression_parser/parser';
-import {InterpolationConfig} from '../ml_parser/defaults';
 import {mergeNsAndName} from '../ml_parser/tags';
 import {InterpolatedAttributeToken, InterpolatedTextToken} from '../ml_parser/tokens';
 import {ParseError, ParseErrorLevel, ParseSourceSpan} from '../parse_util';
@@ -39,6 +41,7 @@ import {splitAtColon, splitAtPeriod} from '../util';
 
 const PROPERTY_PARTS_SEPARATOR = '.';
 const ATTRIBUTE_PREFIX = 'attr';
+const ANIMATE_PREFIX = 'animate';
 const CLASS_PREFIX = 'class';
 const STYLE_PREFIX = 'style';
 const TEMPLATE_ATTR_PREFIX = '*';
@@ -58,14 +61,9 @@ export interface HostListeners {
 export class BindingParser {
   constructor(
     private _exprParser: Parser,
-    private _interpolationConfig: InterpolationConfig,
     private _schemaRegistry: ElementSchemaRegistry,
     public errors: ParseError[],
   ) {}
-
-  get interpolationConfig(): InterpolationConfig {
-    return this._interpolationConfig;
-  }
 
   createBoundHostProperties(
     properties: HostProperties,
@@ -150,7 +148,6 @@ export class BindingParser {
         sourceSpan,
         absoluteOffset,
         interpolatedTokens,
-        this._interpolationConfig,
       )!;
       if (ast) {
         this.errors.push(...ast.errors);
@@ -399,6 +396,16 @@ export class BindingParser {
         targetMatchableAttrs,
         targetProps,
       );
+    } else if (name.startsWith(`${ANIMATE_PREFIX}${PROPERTY_PARTS_SEPARATOR}`)) {
+      this._parseAnimation(
+        name,
+        this.parseBinding(expression, isHost, valueSpan || sourceSpan, absoluteOffset),
+        sourceSpan,
+        keySpan,
+        valueSpan,
+        targetMatchableAttrs,
+        targetProps,
+      );
     } else {
       this._parsePropertyAst(
         name,
@@ -463,6 +470,21 @@ export class BindingParser {
     );
   }
 
+  private _parseAnimation(
+    name: string,
+    ast: ASTWithSource,
+    sourceSpan: ParseSourceSpan,
+    keySpan: ParseSourceSpan,
+    valueSpan: ParseSourceSpan | undefined,
+    targetMatchableAttrs: string[][],
+    targetProps: ParsedProperty[],
+  ) {
+    targetMatchableAttrs.push([name, ast.source!]);
+    targetProps.push(
+      new ParsedProperty(name, ast, ParsedPropertyType.ANIMATION, sourceSpan, keySpan, valueSpan),
+    );
+  }
+
   private _parseLegacyAnimation(
     name: string,
     expression: string | null,
@@ -507,18 +529,8 @@ export class BindingParser {
   ): ASTWithSource {
     try {
       const ast = isHostBinding
-        ? this._exprParser.parseSimpleBinding(
-            value,
-            sourceSpan,
-            absoluteOffset,
-            this._interpolationConfig,
-          )
-        : this._exprParser.parseBinding(
-            value,
-            sourceSpan,
-            absoluteOffset,
-            this._interpolationConfig,
-          );
+        ? this._exprParser.parseSimpleBinding(value, sourceSpan, absoluteOffset)
+        : this._exprParser.parseBinding(value, sourceSpan, absoluteOffset);
       if (ast) {
         this.errors.push(...ast.errors);
       }
@@ -585,6 +597,10 @@ export class BindingParser {
         boundPropertyName = parts[1];
         bindingType = BindingType.Style;
         securityContexts = [SecurityContext.STYLE];
+      } else if (parts[0] == ANIMATE_PREFIX) {
+        boundPropertyName = boundProp.name;
+        bindingType = BindingType.Animation;
+        securityContexts = [SecurityContext.NONE];
       }
     }
 
@@ -617,7 +633,6 @@ export class BindingParser {
     );
   }
 
-  // TODO: keySpan should be required but was made optional to avoid changing VE parser.
   parseEvent(
     name: string,
     expression: string,
@@ -744,16 +759,16 @@ export class BindingParser {
       this._reportError('Unsupported expression in a two-way binding', sourceSpan);
     }
 
+    let eventType = ParsedEventType.Regular;
+    if (isAssignmentEvent) {
+      eventType = ParsedEventType.TwoWay;
+    }
+    if (name.startsWith(`${ANIMATE_PREFIX}${PROPERTY_PARTS_SEPARATOR}`)) {
+      eventType = ParsedEventType.Animation;
+    }
+
     targetEvents.push(
-      new ParsedEvent(
-        eventName,
-        target,
-        isAssignmentEvent ? ParsedEventType.TwoWay : ParsedEventType.Regular,
-        ast,
-        sourceSpan,
-        handlerSpan,
-        keySpan,
-      ),
+      new ParsedEvent(eventName, target, eventType, ast, sourceSpan, handlerSpan, keySpan),
     );
     // Don't detect directives for event names for now,
     // so don't add the event name to the matchableAttrs
@@ -763,12 +778,7 @@ export class BindingParser {
     const absoluteOffset = sourceSpan && sourceSpan.start ? sourceSpan.start.offset : 0;
 
     try {
-      const ast = this._exprParser.parseAction(
-        value,
-        sourceSpan,
-        absoluteOffset,
-        this._interpolationConfig,
-      );
+      const ast = this._exprParser.parseAction(value, sourceSpan, absoluteOffset);
       if (ast) {
         this.errors.push(...ast.errors);
       }
@@ -834,11 +844,29 @@ export class BindingParser {
     }
 
     if (ast instanceof PropertyRead || ast instanceof KeyedRead) {
-      return true;
+      if (!hasRecursiveSafeReceiver(ast)) {
+        return true;
+      }
     }
 
     return false;
   }
+}
+
+function hasRecursiveSafeReceiver(ast: AST): boolean {
+  if (ast instanceof SafePropertyRead || ast instanceof SafeKeyedRead) {
+    return true;
+  }
+
+  if (ast instanceof ParenthesizedExpression) {
+    return hasRecursiveSafeReceiver(ast.expression);
+  }
+
+  if (ast instanceof PropertyRead || ast instanceof KeyedRead || ast instanceof Call) {
+    return hasRecursiveSafeReceiver(ast.receiver);
+  }
+
+  return false;
 }
 
 function isLegacyAnimationLabel(name: string): boolean {

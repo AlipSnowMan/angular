@@ -15,6 +15,7 @@ import {
   AbstractControlOptions,
   assertAllValuesPresent,
   assertControlPresent,
+  FormResetEvent,
   pickAsyncValidators,
   pickValidators,
   ɵRawValue,
@@ -174,9 +175,16 @@ export class FormArray<TControl extends AbstractControl<any> = any> extends Abst
    * `valueChanges` observables emit events with the latest status and value when the control is
    * inserted. When false, no events are emitted.
    */
-  push(control: TControl, options: {emitEvent?: boolean} = {}): void {
-    this.controls.push(control);
-    this._registerControl(control);
+  push(control: TControl | Array<TControl>, options: {emitEvent?: boolean} = {}): void {
+    if (Array.isArray(control)) {
+      control.forEach((ctrl) => {
+        this.controls.push(ctrl);
+        this._registerControl(ctrl);
+      });
+    } else {
+      this.controls.push(control);
+      this._registerControl(control);
+    }
     this.updateValueAndValidity({emitEvent: options.emitEvent});
     this._onCollectionChange();
   }
@@ -424,6 +432,9 @@ export class FormArray<TControl extends AbstractControl<any> = any> extends Abst
     this._updatePristine(options, this);
     this._updateTouched(options, this);
     this.updateValueAndValidity(options);
+    if (options?.emitEvent !== false) {
+      this._events.next(new FormResetEvent(this));
+    }
   }
 
   /**

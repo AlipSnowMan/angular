@@ -5,10 +5,11 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.dev/license
  */
-
+import {ɵRuntimeError as RuntimeError} from '@angular/core';
 import {HttpContext} from './context';
 import {HttpHeaders} from './headers';
 import {HttpParams} from './params';
+import {RuntimeErrorCode} from './errors';
 
 /**
  * Construction interface for `HttpRequest`s.
@@ -30,6 +31,8 @@ interface HttpRequestInit {
   timeout?: number;
   mode?: RequestMode;
   redirect?: RequestRedirect;
+  referrer?: string;
+  integrity?: string;
 }
 
 /**
@@ -96,13 +99,6 @@ export const CONTENT_TYPE_HEADER = 'Content-Type';
  * (or content types) the client is willing to receive from the server.
  */
 export const ACCEPT_HEADER = 'Accept';
-
-/**
- * `X-Request-URL` is a custom HTTP header used in older browser versions,
- * including Firefox (< 32), Chrome (< 37), Safari (< 8), and Internet Explorer,
- * to include the full URL of the request in cross-origin requests.
- */
-export const X_REQUEST_URL_HEADER = 'X-Request-URL';
 
 /**
  * `text/plain` is a content type used to indicate that the content being
@@ -205,6 +201,19 @@ export class HttpRequest<T> {
   readonly redirect!: RequestRedirect;
 
   /**
+   * The referrer of the request, which can be used to indicate the origin of the request.
+   * This is useful for security and analytics purposes.
+   * Value is a same-origin URL, "about:client", or the empty string, to set request's referrer.
+   */
+  readonly referrer!: string;
+
+  /**
+   * The integrity metadata of the request, which can be used to ensure the request is made with the expected content.
+   * A cryptographic hash of the resource to be fetched by request
+   */
+  readonly integrity!: string;
+
+  /**
    * The expected response type of the server.
    *
    * This is used to parse the response appropriately before returning it to
@@ -260,6 +269,8 @@ export class HttpRequest<T> {
       cache?: RequestCache;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
       /**
        * This property accepts either a boolean to enable/disable transferring cache for eligible
        * requests performed using `HttpClient`, or an object, which allows to configure cache
@@ -289,6 +300,8 @@ export class HttpRequest<T> {
       timeout?: number;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
     },
   );
   constructor(
@@ -308,6 +321,8 @@ export class HttpRequest<T> {
       cache?: RequestCache;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
       /**
        * This property accepts either a boolean to enable/disable transferring cache for eligible
        * requests performed using `HttpClient`, or an object, which allows to configure cache
@@ -338,6 +353,8 @@ export class HttpRequest<T> {
       timeout?: number;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
     },
   );
   constructor(
@@ -357,6 +374,8 @@ export class HttpRequest<T> {
       cache?: RequestCache;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
       /**
        * This property accepts either a boolean to enable/disable transferring cache for eligible
        * requests performed using `HttpClient`, or an object, which allows to configure cache
@@ -387,6 +406,8 @@ export class HttpRequest<T> {
           cache?: RequestCache;
           mode?: RequestMode;
           redirect?: RequestRedirect;
+          referrer?: string;
+          integrity?: string;
           transferCache?: {includeHeaders?: string[]} | boolean;
           timeout?: number;
         }
@@ -404,6 +425,8 @@ export class HttpRequest<T> {
       cache?: RequestCache;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
       transferCache?: {includeHeaders?: string[]} | boolean;
       timeout?: number;
     },
@@ -465,8 +488,10 @@ export class HttpRequest<T> {
         // XHR will ignore any value below 1. AbortSignals only accept unsigned integers.
 
         if (options.timeout < 1 || !Number.isInteger(options.timeout)) {
-          // TODO: create a runtime error
-          throw new Error(ngDevMode ? '`timeout` must be a positive integer value' : '');
+          throw new RuntimeError(
+            RuntimeErrorCode.INVALID_TIMEOUT_VALUE,
+            ngDevMode ? '`timeout` must be a positive integer value' : '',
+          );
         }
 
         this.timeout = options.timeout;
@@ -478,6 +503,14 @@ export class HttpRequest<T> {
 
       if (options.redirect) {
         this.redirect = options.redirect;
+      }
+
+      if (options.integrity) {
+        this.integrity = options.integrity;
+      }
+
+      if (options.referrer) {
+        this.referrer = options.referrer;
       }
 
       // We do want to assign transferCache even if it's falsy (false is valid value)
@@ -611,6 +644,8 @@ export class HttpRequest<T> {
     cache?: RequestCache;
     mode?: RequestMode;
     redirect?: RequestRedirect;
+    referrer?: string;
+    integrity?: string;
     transferCache?: {includeHeaders?: string[]} | boolean;
     timeout?: number;
     body?: T | null;
@@ -630,6 +665,8 @@ export class HttpRequest<T> {
     cache?: RequestCache;
     mode?: RequestMode;
     redirect?: RequestRedirect;
+    referrer?: string;
+    integrity?: string;
     withCredentials?: boolean;
     credentials?: RequestCredentials;
     transferCache?: {includeHeaders?: string[]} | boolean;
@@ -654,6 +691,8 @@ export class HttpRequest<T> {
       cache?: RequestCache;
       mode?: RequestMode;
       redirect?: RequestRedirect;
+      referrer?: string;
+      integrity?: string;
       transferCache?: {includeHeaders?: string[]} | boolean;
       timeout?: number;
       body?: any | null;
@@ -674,6 +713,8 @@ export class HttpRequest<T> {
     const mode = update.mode || this.mode;
     const redirect = update.redirect || this.redirect;
     const credentials = update.credentials || this.credentials;
+    const referrer = update.referrer || this.referrer;
+    const integrity = update.integrity || this.integrity;
     // Carefully handle the transferCache to differentiate between
     // `false` and `undefined` in the update args.
     const transferCache = update.transferCache ?? this.transferCache;
@@ -733,6 +774,8 @@ export class HttpRequest<T> {
       mode,
       redirect,
       credentials,
+      referrer,
+      integrity,
     });
   }
 }

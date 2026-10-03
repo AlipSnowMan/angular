@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "jasmine_test", "ts_project")
+load("//tools:defaults.bzl", "jasmine_test", "ts_project")
 
 ts_project(
     name = "test_lib",
@@ -6,13 +6,11 @@ ts_project(
     srcs = glob(
         ["**/*_spec.ts"],
     ),
-    interop_deps = [
-        "//packages:types",
-    ],
     deps = [
-        "//packages/localize:localize_rjs",
-        "//packages/localize/init:init_rjs",
-        "//packages/localize/src/utils:utils_rjs",
+        "//packages:types",
+        "//packages/localize",
+        "//packages/localize/init",
+        "//packages/localize/src/utils",
     ],
 )
 

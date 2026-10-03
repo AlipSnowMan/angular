@@ -252,7 +252,19 @@ export class Identifiers {
 
   static domProperty: o.ExternalReference = {name: 'ɵɵdomProperty', moduleName: CORE};
 
+  static ariaProperty: o.ExternalReference = {name: 'ɵɵariaProperty', moduleName: CORE};
   static property: o.ExternalReference = {name: 'ɵɵproperty', moduleName: CORE};
+
+  static animationEnterListener: o.ExternalReference = {
+    name: 'ɵɵanimateEnterListener',
+    moduleName: CORE,
+  };
+  static animationLeaveListener: o.ExternalReference = {
+    name: 'ɵɵanimateLeaveListener',
+    moduleName: CORE,
+  };
+  static animationEnter: o.ExternalReference = {name: 'ɵɵanimateEnter', moduleName: CORE};
+  static animationLeave: o.ExternalReference = {name: 'ɵɵanimateLeave', moduleName: CORE};
 
   static i18n: o.ExternalReference = {name: 'ɵɵi18n', moduleName: CORE};
   static i18nAttributes: o.ExternalReference = {name: 'ɵɵi18nAttributes', moduleName: CORE};
@@ -469,4 +481,5 @@ export class Identifiers {
   static InputSignalBrandWriteType = {name: 'ɵINPUT_SIGNAL_BRAND_WRITE_TYPE', moduleName: CORE};
   static UnwrapDirectiveSignalInputs = {name: 'ɵUnwrapDirectiveSignalInputs', moduleName: CORE};
   static unwrapWritableSignal = {name: 'ɵunwrapWritableSignal', moduleName: CORE};
+  static assertType = {name: 'ɵassertType', moduleName: CORE};
 }

@@ -9,7 +9,7 @@ ts_project(
     ],
     visibility = ["//adev/shared-docs:__subpackages__"],
     deps = [
-        ":lib_rjs",
+        ":lib",
     ],
 )
 
@@ -22,7 +22,7 @@ ts_project(
         ],
     ),
     deps = [
-        "//:node_modules/@webcontainer/api",
-        "//packages/core:core_rjs",
+        "//adev:node_modules/@angular/core",
+        "//adev:node_modules/@webcontainer/api",
     ],
 )

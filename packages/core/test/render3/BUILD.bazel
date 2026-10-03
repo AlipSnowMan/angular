@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "angular_jasmine_test", "ng_web_test_suite", "ts_project")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ng_web_test_suite", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -16,8 +16,10 @@ ts_project(
             "matchers.ts",
         ],
     ),
-    interop_deps = [
+    deps = [
         ":matchers",
+        "//:node_modules/rxjs",
+        "//:node_modules/zone.js",
         "//packages/animations",
         "//packages/animations/browser",
         "//packages/animations/browser/testing",
@@ -35,10 +37,6 @@ ts_project(
         "//packages/platform-browser/testing",
         "//packages/private/testing",
     ],
-    deps = [
-        "//:node_modules/rxjs",
-        "//:node_modules/zone.js",
-    ],
 )
 
 ts_project(
@@ -48,7 +46,7 @@ ts_project(
         "is_shape_of.ts",
         "matchers.ts",
     ],
-    interop_deps = [
+    deps = [
         "//packages/core",
     ],
 )
@@ -59,7 +57,7 @@ ts_project(
     srcs = [
         "load_domino.ts",
     ],
-    interop_deps = [
+    deps = [
         "//packages/common",
         "//packages/compiler",
         "//packages/platform-server",
@@ -67,26 +65,17 @@ ts_project(
     ],
 )
 
-ts_project(
-    name = "render3_node_lib",
-    testonly = True,
-    srcs = [],
-    deps = [
-        ":domino_rjs",
-        ":render3_lib_rjs",
-    ],
-)
-
 angular_jasmine_test(
     name = "render3",
     data = [
-        ":render3_node_lib_rjs",
+        ":domino",
+        ":render3_lib",
     ],
 )
 
 ng_web_test_suite(
     name = "render3_web",
     deps = [
-        ":render3_lib_rjs",
+        ":render3_lib",
     ],
 )

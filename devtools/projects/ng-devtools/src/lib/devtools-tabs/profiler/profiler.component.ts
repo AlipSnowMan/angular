@@ -6,10 +6,11 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, inject, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, signal} from '@angular/core';
 import {MatDialog} from '@angular/material/dialog';
 import {MatIcon} from '@angular/material/icon';
 import {MatTooltip} from '@angular/material/tooltip';
+import {MatProgressBar} from '@angular/material/progress-bar';
 import {Events, MessageBus, ProfilerFrame} from '../../../../../protocol';
 import {Subject} from 'rxjs';
 
@@ -27,7 +28,8 @@ const PROFILER_VERSION = 1;
   selector: 'ng-profiler',
   templateUrl: './profiler.component.html',
   styleUrls: ['./profiler.component.scss'],
-  imports: [MatTooltip, MatIcon, RecordingTimelineComponent, ButtonComponent],
+  imports: [MatTooltip, MatIcon, RecordingTimelineComponent, ButtonComponent, MatProgressBar],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProfilerComponent {
   readonly state = signal<State>('idle');

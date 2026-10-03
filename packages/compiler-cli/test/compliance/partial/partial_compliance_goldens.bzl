@@ -1,6 +1,5 @@
-load("@aspect_rules_js//js:defs.bzl", "js_run_binary")
-load("@build_bazel_rules_nodejs//:index.bzl", "generated_file_test")
-load("//tools/bazel:js_binary.bzl", "js_binary")
+load("@aspect_bazel_lib//lib:write_source_files.bzl", "write_source_file")
+load("//tools:defaults.bzl", "js_binary", "js_run_binary")
 
 def partial_compliance_golden(filePath):
     """Creates the generate and testing targets for partial compile results.
@@ -10,7 +9,7 @@ def partial_compliance_golden(filePath):
     path = filePath[:-len("/TEST_CASES.json")]
     generate_partial_name = "partial_%s" % path
     data = [
-        "//packages/compiler-cli/test/compliance/partial:generate_golden_partial_lib_rjs",
+        "//packages/compiler-cli/test/compliance/partial:generate_golden_partial_lib",
         "//packages/core:npm_package",
         "//packages:package_json",
         filePath,
@@ -37,9 +36,13 @@ def partial_compliance_golden(filePath):
         progress_message = "Generating partial golden: %{label}",
     )
 
-    generated_file_test(
+    write_source_file(
         visibility = ["//visibility:public"],
         name = "%s.golden" % path,
-        src = "//packages/compiler-cli/test/compliance/test_cases:%s/GOLDEN_PARTIAL.js" % path,
-        generated = "_generated_%s" % path,
+        tags = [
+            "partial-golden-compliance-test",
+        ],
+        testonly = True,
+        out_file = "//packages/compiler-cli/test/compliance/test_cases:%s/GOLDEN_PARTIAL.js" % path,
+        in_file = "_generated_%s" % path,
     )

@@ -6,7 +6,16 @@
  * found in the LICENSE file at https://angular.dev/license
  */
 
-import {Component, computed, effect, input, linkedSignal, output, signal} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  input,
+  linkedSignal,
+  output,
+  signal,
+} from '@angular/core';
 import {ProfilerFrame} from '../../../../../../protocol';
 import {Observable} from 'rxjs';
 
@@ -17,7 +26,6 @@ import {VisualizationMode} from './shared/visualization-mode';
 import {RecordingVisualizerComponent} from './recording-visualizer/recording-visualizer.component';
 import {FrameSelectorComponent} from './frame-selector/frame-selector.component';
 import {RecordingTimelineControlsComponent} from './recording-timeline-controls/recording-timeline-controls.component';
-import {RecordingModalComponent} from './recording-modal/recording-modal.component';
 import {VisualizerControlsComponent} from './visualizer-controls/visualizer-controls.component';
 import {estimateFrameRate} from './shared/estimate-frame-rate';
 
@@ -26,12 +34,12 @@ import {estimateFrameRate} from './shared/estimate-frame-rate';
   templateUrl: './recording-timeline.component.html',
   styleUrls: ['./recording-timeline.component.scss'],
   imports: [
-    RecordingModalComponent,
     RecordingTimelineControlsComponent,
     FrameSelectorComponent,
     RecordingVisualizerComponent,
     VisualizerControlsComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecordingTimelineComponent {
   readonly stream = input.required<Observable<ProfilerFrame[]>>();

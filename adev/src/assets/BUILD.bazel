@@ -1,4 +1,4 @@
-load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("//adev/shared-docs:defaults.bzl", "copy_to_directory")
 load("//adev/shared-docs/pipeline/api-gen/manifest:generate_api_manifest.bzl", "generate_api_manifest")
 
 package(default_visibility = ["//adev:__subpackages__"])
@@ -17,6 +17,7 @@ copy_to_directory(
         "//adev/src/content/ecosystem/service-workers",
         "//adev/src/content/guide",
         "//adev/src/content/guide/animations",
+        "//adev/src/content/guide/aria",
         "//adev/src/content/guide/components",
         "//adev/src/content/guide/di",
         "//adev/src/content/guide/directives",
@@ -41,11 +42,14 @@ copy_to_directory(
         "//adev/src/content/reference/migrations",
         "//adev/src/content/tools",
         "//adev/src/content/tools/cli",
+        "//adev/src/content/tools/devtools",
         "//adev/src/content/tools/libraries",
         "//adev/src/content/tutorials",
         "//adev/src/content/tutorials/deferrable-views:deferrable-views-guides",
         "//adev/src/content/tutorials/first-app:first-app-guides",
         "//adev/src/content/tutorials/learn-angular:learn-angular-guides",
+        "//adev/src/content/tutorials/signals",
+        "//adev/src/content/tutorials/signals:signals-guides",
         "//packages/animations:animations_docs",
         "//packages/animations/browser:animations_browser_docs",
         "//packages/animations/browser/testing:animations_browser_testing_docs",
@@ -60,6 +64,7 @@ copy_to_directory(
         "//packages/core/testing:core_testing_docs",
         "//packages/elements:elements_docs",
         "//packages/forms:forms_docs",
+        "//packages/forms/signals:forms_signals_docs",
         "//packages/localize:localize_docs",
         "//packages/localize/src/localize:localize_init_docs",
         "//packages/platform-browser:platform-browser_docs",
@@ -74,8 +79,8 @@ copy_to_directory(
         "//packages/router/testing:router_testing_docs",
         "//packages/router/upgrade:router_upgrade_docs",
         "//packages/service-worker:service-worker_docs",
-        "//packages/ssr:ssr_docs",
-        "//packages/ssr:ssr_node_docs",
+        "//packages/ssr/docs:ssr_docs",
+        "//packages/ssr/docs:ssr_node_docs",
         "//packages/upgrade:upgrade_docs",
         "//packages/upgrade/static:upgrade_static_docs",
         "//packages/upgrade/static/testing:upgrade_static_testing_docs",
@@ -99,6 +104,7 @@ copy_to_directory(
         "//adev/src/content/tutorials/homepage",
         "//adev/src/content/tutorials/learn-angular",
         "//adev/src/content/tutorials/playground",
+        "//adev/src/content/tutorials/signals",
     ],
     replace_prefixes = {
         "adev/**/tutorials/*/": "",

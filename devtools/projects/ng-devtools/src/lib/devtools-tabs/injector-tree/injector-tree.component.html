@@ -30,16 +30,17 @@
             <div class="injector-hierarchy">
               <h2>
                 <span>Environment Hierarchy</span>
-                <a
-                  class="hierarchy-ref"
-                  href="https://angular.dev/guide/di/hierarchical-dependency-injection#types-of-injector-hierarchies"
-                  target="_blank"
-                >
-                  <mat-icon matTooltip="Open docs reference"> open_in_new </mat-icon>
-                </a>
+                <ng-docs-ref-button docs="injector-hierarchies" />
               </h2>
               <section class="injector-graph">
-                <ng-tree-visualizer-host #environmentTree />
+                <ng-tree-visualizer
+                  #environmentTree
+                  a11yTitle="Environment hierarchy visualization"
+                  [root]="environmentInjectorTree()!"
+                  [config]="environmentTreeConfig"
+                  (nodeClick)="selectInjectorByNode($event)"
+                  (render)="onTreeRender(environmentTree, $event)"
+                />
               </section>
             </div>
           </as-split-area>
@@ -47,26 +48,28 @@
             <div class="injector-hierarchy">
               <h2>
                 <span>Element Hierarchy</span>
-                <a
-                  class="hierarchy-ref"
-                  href="https://angular.dev/guide/di/hierarchical-dependency-injection#types-of-injector-hierarchies"
-                  target="_blank"
-                >
-                  <mat-icon matTooltip="Open docs reference"> open_in_new </mat-icon>
-                </a>
+                <ng-docs-ref-button docs="injector-hierarchies" />
               </h2>
               <section class="injector-graph">
-                <ng-tree-visualizer-host #elementTree />
+                <ng-tree-visualizer
+                  #elementTree
+                  a11yTitle="Element hierarchy visualization"
+                  [root]="elementInjectorTree()!"
+                  [config]="elementTreeConfig"
+                  (nodeClick)="selectInjectorByNode($event)"
+                  (render)="onTreeRender(elementTree, $event)"
+                />
               </section>
             </div>
           </as-split-area>
         </as-split>
       </as-split-area>
-      @if (selectedNode() && providers().length > 0) {
+      @if (injectorProvidersEnabled()) {
         <as-split-area size="40" [minSize]="25">
           <ng-injector-providers
             [injector]="selectedNode()!.data.injector"
             [providers]="providers()"
+            (close)="injectorProvidersEnabled.set(false)"
           />
         </as-split-area>
       }

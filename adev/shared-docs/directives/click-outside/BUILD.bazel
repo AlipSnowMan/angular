@@ -1,5 +1,4 @@
-load("//adev/shared-docs:defaults.bzl", "ng_project", "ts_project")
-load("//tools:defaults2.bzl", "ng_web_test_suite")
+load("//adev/shared-docs:defaults.bzl", "ng_project", "ts_project", "zoneless_web_test_suite")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -12,8 +11,8 @@ ng_project(
         "//adev/shared-docs/directives:__pkg__",
     ],
     deps = [
-        "//packages/common:common_rjs",
-        "//packages/core:core_rjs",
+        "//adev:node_modules/@angular/common",
+        "//adev:node_modules/@angular/core",
     ],
 )
 
@@ -24,16 +23,14 @@ ts_project(
         ["*.spec.ts"],
     ),
     deps = [
-        ":click-outside_rjs",
-        "//packages/core:core_rjs",
-        "//packages/core/testing:testing_rjs",
-        "//packages/platform-browser:platform-browser_rjs",
-        "//packages/router:router_rjs",
-        "//packages/router/testing:testing_rjs",
+        ":click-outside",
+        "//adev:node_modules/@angular/core",
+        "//adev:node_modules/@angular/platform-browser",
+        "//adev:node_modules/@angular/router",
     ],
 )
 
-ng_web_test_suite(
+zoneless_web_test_suite(
     name = "test",
-    deps = [":test_lib_rjs"],
+    deps = [":test_lib"],
 )

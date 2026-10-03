@@ -1,8 +1,7 @@
-load("@aspect_bazel_lib//lib:copy_to_bin.bzl", "copy_to_bin")
-load("@build_bazel_rules_nodejs//:index.bzl", "js_library")
-load("@npm2//:defs.bzl", "npm_link_all_packages")
-load("//:yarn.bzl", "YARN_PATH")
-load("//tools:defaults.bzl", "nodejs_binary")
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+load("@devinfra//bazel/validation:defs.bzl", "validate_ts_version_matching")
+load("@npm//:defs.bzl", "npm_link_all_packages")
+load("//tools:defaults.bzl", "copy_to_bin")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,12 +9,7 @@ exports_files([
     "LICENSE",
     "karma-js.conf.js",
     "browser-providers.conf.js",
-    YARN_PATH,
-    "scripts/ci/bazel-payload-size.sh",
-    "scripts/ci/payload-size.sh",
-    "scripts/ci/payload-size.js",
     "package.json",
-    "angular.json",
 ])
 
 npm_link_all_packages(
@@ -27,6 +21,11 @@ filegroup(
     # in a js_library target, which doesn't allow source file deps
     name = "package_json",
     srcs = ["package.json"],
+)
+
+validate_ts_version_matching(
+    module_lock_file = "MODULE.bazel.lock",
+    package_json = "package.json",
 )
 
 alias(
@@ -62,16 +61,6 @@ copy_to_bin(
 config_setting(
     name = "stamp",
     values = {"stamp": "true"},
-)
-
-nodejs_binary(
-    name = "yarn_vendored",
-    data = [".yarn/releases/yarn-1.22.22.cjs"],
-    entry_point = ".yarn/releases/yarn-1.22.22.cjs",
-    visibility = [
-        "//integration:__subpackages__",
-        "//modules/ssr-benchmarks:__subpackages__",
-    ],
 )
 
 alias(

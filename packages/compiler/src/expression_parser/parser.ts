@@ -7,7 +7,6 @@
  */
 
 import * as chars from '../chars';
-import {DEFAULT_INTERPOLATION_CONFIG, InterpolationConfig} from '../ml_parser/defaults';
 import {
   InterpolatedAttributeToken,
   InterpolatedTextToken,
@@ -40,6 +39,7 @@ import {
   PrefixNot,
   PropertyRead,
   RecursiveAstVisitor,
+  RegularExpressionLiteral,
   SafeCall,
   SafeKeyedRead,
   SafePropertyRead,
@@ -102,11 +102,10 @@ export class Parser {
     input: string,
     parseSourceSpan: ParseSourceSpan,
     absoluteOffset: number,
-    interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG,
   ): ASTWithSource {
     const errors: ParseError[] = [];
-    this._checkNoInterpolation(errors, input, parseSourceSpan, interpolationConfig);
-    const sourceToLex = this._stripComments(input);
+    this._checkNoInterpolation(errors, input, parseSourceSpan);
+    const {stripped: sourceToLex} = this._stripComments(input);
     const tokens = this._lexer.tokenize(sourceToLex);
     const ast = new _ParseAST(
       input,
@@ -126,16 +125,9 @@ export class Parser {
     input: string,
     parseSourceSpan: ParseSourceSpan,
     absoluteOffset: number,
-    interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG,
   ): ASTWithSource {
     const errors: ParseError[] = [];
-    const ast = this._parseBindingAst(
-      input,
-      parseSourceSpan,
-      absoluteOffset,
-      interpolationConfig,
-      errors,
-    );
+    const ast = this._parseBindingAst(input, parseSourceSpan, absoluteOffset, errors);
     return new ASTWithSource(ast, input, getLocation(parseSourceSpan), absoluteOffset, errors);
   }
 
@@ -150,16 +142,9 @@ export class Parser {
     input: string,
     parseSourceSpan: ParseSourceSpan,
     absoluteOffset: number,
-    interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG,
   ): ASTWithSource {
     const errors: ParseError[] = [];
-    const ast = this._parseBindingAst(
-      input,
-      parseSourceSpan,
-      absoluteOffset,
-      interpolationConfig,
-      errors,
-    );
+    const ast = this._parseBindingAst(input, parseSourceSpan, absoluteOffset, errors);
     const simplExpressionErrors = this.checkSimpleExpression(ast);
 
     if (simplExpressionErrors.length > 0) {
@@ -179,11 +164,10 @@ export class Parser {
     input: string,
     parseSourceSpan: ParseSourceSpan,
     absoluteOffset: number,
-    interpolationConfig: InterpolationConfig,
     errors: ParseError[],
   ): AST {
-    this._checkNoInterpolation(errors, input, parseSourceSpan, interpolationConfig);
-    const sourceToLex = this._stripComments(input);
+    this._checkNoInterpolation(errors, input, parseSourceSpan);
+    const {stripped: sourceToLex} = this._stripComments(input);
     const tokens = this._lexer.tokenize(sourceToLex);
     return new _ParseAST(
       input,
@@ -253,7 +237,6 @@ export class Parser {
     parseSourceSpan: ParseSourceSpan,
     absoluteOffset: number,
     interpolatedTokens: InterpolatedAttributeToken[] | InterpolatedTextToken[] | null,
-    interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG,
   ): ASTWithSource | null {
     const errors: ParseError[] = [];
     const {strings, expressions, offsets} = this.splitInterpolation(
@@ -261,7 +244,6 @@ export class Parser {
       parseSourceSpan,
       errors,
       interpolatedTokens,
-      interpolationConfig,
     );
     if (expressions.length === 0) return null;
 
@@ -273,8 +255,22 @@ export class Parser {
       // indexes inside the tokens.
       const expressionSpan = interpolatedTokens?.[i * 2 + 1]?.sourceSpan;
       const expressionText = expressions[i].text;
-      const sourceToLex = this._stripComments(expressionText);
+      const {stripped: sourceToLex, hasComments} = this._stripComments(expressionText);
       const tokens = this._lexer.tokenize(sourceToLex);
+
+      if (hasComments && sourceToLex.trim().length === 0 && tokens.length === 0) {
+        // Empty expressions error are handled futher down, here we only take care of the comment case
+        errors.push(
+          getParseError(
+            'Interpolation expression cannot only contain a comment',
+            input,
+            `at column ${expressions[i].start} in`,
+            parseSourceSpan,
+          ),
+        );
+        continue;
+      }
+
       const ast = new _ParseAST(
         expressionSpan ? expressionText : input,
         expressionSpan || parseSourceSpan,
@@ -308,7 +304,7 @@ export class Parser {
     parseSourceSpan: ParseSourceSpan,
     absoluteOffset: number,
   ): ASTWithSource {
-    const sourceToLex = this._stripComments(expression);
+    const {stripped: sourceToLex} = this._stripComments(expression);
     const tokens = this._lexer.tokenize(sourceToLex);
     const errors: ParseError[] = [];
     const ast = new _ParseAST(
@@ -362,7 +358,6 @@ export class Parser {
     parseSourceSpan: ParseSourceSpan,
     errors: ParseError[],
     interpolatedTokens: InterpolatedAttributeToken[] | InterpolatedTextToken[] | null,
-    interpolationConfig: InterpolationConfig = DEFAULT_INTERPOLATION_CONFIG,
   ): SplitInterpolation {
     const strings: InterpolationPiece[] = [];
     const expressions: InterpolationPiece[] = [];
@@ -373,7 +368,8 @@ export class Parser {
     let i = 0;
     let atInterpolation = false;
     let extendLastString = false;
-    let {start: interpStart, end: interpEnd} = interpolationConfig;
+    const interpStart = '{{';
+    const interpEnd = '}}';
     while (i < input.length) {
       if (!atInterpolation) {
         // parse until starting {{
@@ -450,9 +446,11 @@ export class Parser {
     );
   }
 
-  private _stripComments(input: string): string {
+  private _stripComments(input: string): {stripped: string; hasComments: boolean} {
     const i = this._commentStart(input);
-    return i != null ? input.substring(0, i) : input;
+    return i != null
+      ? {stripped: input.substring(0, i), hasComments: true}
+      : {stripped: input, hasComments: false};
   }
 
   private _commentStart(input: string): number | null {
@@ -476,18 +474,17 @@ export class Parser {
     errors: ParseError[],
     input: string,
     parseSourceSpan: ParseSourceSpan,
-    {start, end}: InterpolationConfig,
   ): void {
     let startIndex = -1;
     let endIndex = -1;
 
     for (const charIndex of this._forEachUnquotedChar(input, 0)) {
       if (startIndex === -1) {
-        if (input.startsWith(start)) {
+        if (input.startsWith('{{')) {
           startIndex = charIndex;
         }
       } else {
-        endIndex = this._getInterpolationEndIndex(input, end, charIndex);
+        endIndex = this._getInterpolationEndIndex(input, '}}', charIndex);
         if (endIndex > -1) {
           break;
         }
@@ -497,7 +494,7 @@ export class Parser {
     if (startIndex > -1 && endIndex > -1) {
       errors.push(
         getParseError(
-          `Got interpolation (${start}${end}) where expression was expected`,
+          `Got interpolation ({{}}) where expression was expected`,
           input,
           `at column ${startIndex} in`,
           parseSourceSpan,
@@ -564,6 +561,9 @@ enum ParseContextFlags {
    */
   Writable = 1,
 }
+
+/** Possible flags that can be used in a regex literal. */
+const SUPPORTED_REGEX_FLAGS = new Set(['d', 'g', 'i', 'm', 's', 'u', 'v', 'y']);
 
 class _ParseAST {
   private rparensExpected = 0;
@@ -1162,6 +1162,8 @@ class _ParseAST {
     } else if (this.next.isPrivateIdentifier()) {
       this._reportErrorForPrivateIdentifier(this.next, null);
       return new EmptyExpr(this.span(start), this.sourceSpan(start));
+    } else if (this.next.isRegExpBody()) {
+      return this.parseRegularExpressionLiteral();
     } else if (this.index >= this.tokens.length) {
       this.error(`Unexpected end of expression: ${this.input}`);
       return new EmptyExpr(this.span(start), this.sourceSpan(start));
@@ -1257,9 +1259,9 @@ class _ParseAST {
     } else {
       if (this.isAssignmentOperator(this.next)) {
         const operation = this.next.strValue;
-        this.advance();
 
         if (!(this.parseFlags & ParseFlags.Action)) {
+          this.advance();
           this.error('Bindings cannot contain assignments');
           return new EmptyExpr(this.span(start), this.sourceSpan(start));
         }
@@ -1270,6 +1272,7 @@ class _ParseAST {
           readReceiver,
           id,
         );
+        this.advance();
         const value = this.parseConditional();
         return new Binary(this.span(start), this.sourceSpan(start), operation, receiver, value);
       } else {
@@ -1398,9 +1401,9 @@ class _ParseAST {
       this.expectCharacter(chars.$RBRACKET);
       if (this.isAssignmentOperator(this.next)) {
         const operation = this.next.strValue;
-        this.advance();
 
         if (isSafe) {
+          this.advance();
           this.error("The '?.' operator cannot be used in the assignment");
         } else {
           const binaryReceiver = new KeyedRead(
@@ -1409,6 +1412,7 @@ class _ParseAST {
             receiver,
             key,
           );
+          this.advance();
           const value = this.parseConditional();
           return new Binary(
             this.span(start),
@@ -1598,6 +1602,49 @@ class _ParseAST {
     }
 
     return new TemplateLiteral(this.span(start), this.sourceSpan(start), elements, expressions);
+  }
+
+  private parseRegularExpressionLiteral() {
+    const bodyToken = this.next;
+    this.advance();
+
+    if (!bodyToken.isRegExpBody()) {
+      return new EmptyExpr(this.span(this.inputIndex), this.sourceSpan(this.inputIndex));
+    }
+
+    let flagsToken: Token | null = null;
+
+    if (this.next.isRegExpFlags()) {
+      flagsToken = this.next;
+      this.advance();
+      const seenFlags = new Set<string>();
+
+      for (let i = 0; i < flagsToken.strValue.length; i++) {
+        const char = flagsToken.strValue[i];
+
+        if (!SUPPORTED_REGEX_FLAGS.has(char)) {
+          this.error(
+            `Unsupported regular expression flag "${char}". The supported flags are: ` +
+              Array.from(SUPPORTED_REGEX_FLAGS, (f) => `"${f}"`).join(', '),
+            flagsToken.index + i,
+          );
+        } else if (seenFlags.has(char)) {
+          this.error(`Duplicate regular expression flag "${char}"`, flagsToken.index + i);
+        } else {
+          seenFlags.add(char);
+        }
+      }
+    }
+
+    const start = bodyToken.index;
+    const end = flagsToken ? flagsToken.end : bodyToken.end;
+
+    return new RegularExpressionLiteral(
+      this.span(start, end),
+      this.sourceSpan(start, end),
+      bodyToken.strValue,
+      flagsToken ? flagsToken.strValue : null,
+    );
   }
 
   /**

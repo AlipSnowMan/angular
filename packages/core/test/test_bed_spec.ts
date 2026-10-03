@@ -11,6 +11,7 @@ import {
   APP_INITIALIZER,
   ChangeDetectorRef,
   Compiler,
+  provideZoneChangeDetection,
   Component,
   Directive,
   ElementRef,
@@ -726,6 +727,7 @@ describe('TestBed', () => {
   });
 
   it('should give the ability to trigger the change detection', () => {
+    TestBed.configureTestingModule({providers: [provideZoneChangeDetection()]});
     const hello = TestBed.createComponent(HelloWorld);
 
     hello.detectChanges();
@@ -2360,7 +2362,10 @@ describe('TestBed', () => {
     describe('with zone change detection', () => {
       it('should update fixtures with autoDetect', () => {
         TestBed.configureTestingModule({
-          providers: [{provide: ComponentFixtureAutoDetect, useValue: true}],
+          providers: [
+            {provide: ComponentFixtureAutoDetect, useValue: true},
+            provideZoneChangeDetection(),
+          ],
         });
         const {nativeElement, componentInstance} = TestBed.createComponent(Thing1);
         expect(nativeElement.textContent).toBe('1');
@@ -2400,6 +2405,58 @@ describe('TestBed', () => {
       });
     });
   });
+
+  describe('inferTagName', () => {
+    it('should not infer the tag name of the root component by default', () => {
+      @Component({selector: 'my-test-comp[foo]', template: ''})
+      class TestComp {}
+
+      const fixture = TestBed.createComponent(TestComp);
+      expect(fixture.nativeElement.tagName).toBe('DIV');
+    });
+
+    it('should be able to opt into inferring the tag of the root component from the selector', () => {
+      @Component({selector: 'my-test-comp[foo]', template: ''})
+      class TestComp {}
+
+      const fixture = TestBed.createComponent(TestComp, {inferTagName: true});
+      expect(fixture.nativeElement.tagName).toBe('MY-TEST-COMP');
+    });
+
+    it('should fall back to `div` if the test component does not have a tag selector', () => {
+      @Component({selector: '[foo]', template: ''})
+      class TestComp {}
+
+      const fixture = TestBed.createComponent(TestComp, {inferTagName: true});
+      expect(fixture.nativeElement.tagName).toBe('DIV');
+    });
+
+    it('should fall back to `ng-component` if the test component does not have any selector', () => {
+      @Component({template: ''})
+      class TestComp {}
+
+      const fixture = TestBed.createComponent(TestComp, {inferTagName: true});
+      expect(fixture.nativeElement.tagName).toBe('NG-COMPONENT');
+    });
+
+    it('should be able to opt into inferring the tag name through configureTestingModule', () => {
+      @Component({selector: 'my-test-comp', template: ''})
+      class TestComp {}
+
+      TestBed.configureTestingModule({inferTagName: true});
+      const fixture = TestBed.createComponent(TestComp);
+      expect(fixture.nativeElement.tagName).toBe('MY-TEST-COMP');
+    });
+
+    it('should give precedence to inferTagName from createComponent over configureTestingModule', () => {
+      @Component({selector: 'my-test-comp', template: ''})
+      class TestComp {}
+
+      TestBed.configureTestingModule({inferTagName: false});
+      const fixture = TestBed.createComponent(TestComp);
+      expect(fixture.nativeElement.tagName).toBe('DIV');
+    });
+  });
 });
 
 describe('TestBed defer block behavior', () => {
@@ -2421,6 +2478,28 @@ describe('TestBed defer block behavior', () => {
     expect(TestBedImpl.INSTANCE.getDeferBlockBehavior()).toBe(DeferBlockBehavior.Manual);
     TestBed.resetTestingModule();
     expect(TestBedImpl.INSTANCE.getDeferBlockBehavior()).toBe(DeferBlockBehavior.Playthrough);
+  });
+});
+
+describe('TestBed animations behavior', () => {
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+  });
+
+  it('should default animations behavior to disabled', () => {
+    expect(TestBedImpl.INSTANCE.getAnimationsEnabled()).toBe(false);
+  });
+
+  it('should be able to configure animations behavior', () => {
+    TestBed.configureTestingModule({animationsEnabled: true});
+    expect(TestBedImpl.INSTANCE.getAnimationsEnabled()).toBe(true);
+  });
+
+  it('should reset the animations behavior back to the default when TestBed is reset', () => {
+    TestBed.configureTestingModule({animationsEnabled: true});
+    expect(TestBedImpl.INSTANCE.getAnimationsEnabled()).toBe(true);
+    TestBed.resetTestingModule();
+    expect(TestBedImpl.INSTANCE.getAnimationsEnabled()).toBe(false);
   });
 });
 

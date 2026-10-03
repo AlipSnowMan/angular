@@ -1,4 +1,4 @@
-load("//tools:defaults2.bzl", "angular_jasmine_test", "ts_project")
+load("//tools:defaults.bzl", "angular_jasmine_test", "ts_project")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -9,7 +9,7 @@ ts_project(
         "example_spec.ts",
         "fake_async.ts",
     ],
-    interop_deps = [
+    deps = [
         "//packages/core/testing",
     ],
 )
@@ -17,7 +17,7 @@ ts_project(
 angular_jasmine_test(
     name = "test",
     data = [
-        ":fake_async_lib_rjs",
+        ":fake_async_lib",
     ],
 )
 

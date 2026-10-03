@@ -25,7 +25,9 @@ import {SwPush} from './push';
 import {SwUpdate} from './update';
 import {RuntimeErrorCode} from './errors';
 
-export const SCRIPT = new InjectionToken<string>(ngDevMode ? 'NGSW_REGISTER_SCRIPT' : '');
+export const SCRIPT = new InjectionToken<string>(
+  typeof ngDevMode !== undefined && ngDevMode ? 'NGSW_REGISTER_SCRIPT' : '',
+);
 
 export function ngswAppInitializer(): void {
   if (typeof ngServerMode !== 'undefined' && ngServerMode) {
@@ -101,7 +103,11 @@ export function ngswAppInitializer(): void {
       }
 
       navigator.serviceWorker
-        .register(script, {scope: options.scope})
+        .register(script, {
+          scope: options.scope,
+          updateViaCache: options.updateViaCache,
+          type: options.type,
+        })
         .catch((err) =>
           console.error(
             formatRuntimeError(
@@ -119,10 +125,9 @@ function delayWithTimeout(timeout: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
-export function ngswCommChannelFactory(
-  opts: SwRegistrationOptions,
-  injector: Injector,
-): NgswCommChannel {
+export function ngswCommChannelFactory(): NgswCommChannel {
+  const opts = inject(SwRegistrationOptions);
+  const injector = inject(Injector);
   const isBrowser = !(typeof ngServerMode !== 'undefined' && ngServerMode);
 
   return new NgswCommChannel(
@@ -151,6 +156,23 @@ export abstract class SwRegistrationOptions {
    * Default: true
    */
   enabled?: boolean;
+
+  /**
+   * The value of the setting used to determine the circumstances in which the browser
+   * will consult the HTTP cache when it tries to update the service worker or any scripts that are imported via importScripts().
+   * [ServiceWorkerRegistration.updateViaCache](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/updateViaCache)
+   */
+  updateViaCache?: ServiceWorkerUpdateViaCache;
+
+  /**
+   * The type of the ServiceWorker script to register.
+   * [ServiceWorkerRegistration#type](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register#type)
+   * - `classic`: Registers the script as a classic worker. ES module features such as `import` and `export` are NOT allowed in the script.
+   * - `module`: Registers the script as an ES module. Allows use of `import`/`export` syntax and module features.
+   *
+   * @default 'classic'
+   */
+  type?: WorkerType;
 
   /**
    * A URL that defines the ServiceWorker's registration scope; that is, what range of URLs it can
@@ -220,7 +242,6 @@ export function provideServiceWorker(
     {
       provide: NgswCommChannel,
       useFactory: ngswCommChannelFactory,
-      deps: [SwRegistrationOptions, Injector],
     },
     provideAppInitializer(ngswAppInitializer),
   ]);

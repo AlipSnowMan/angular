@@ -21,7 +21,8 @@ import {
   getParentBlockHydrationQueue,
   isIncrementalHydrationEnabled,
 } from '../hydration/utils';
-import {PendingTasks, PendingTasksInternal} from '../pending_tasks';
+import {PendingTasks} from '../pending_tasks';
+import {PendingTasksInternal} from '../pending_tasks_internal';
 import {assertLContainer} from '../render3/assert';
 import {getComponentDef, getDirectiveDef, getPipeDef} from '../render3/def_getters';
 import {getTemplateLocationDetails} from '../render3/instructions/element_validation';
@@ -70,7 +71,7 @@ import {
   getTDeferBlockDetails,
 } from './utils';
 import {ApplicationRef} from '../application/application_ref';
-import type {PromiseConstructor} from '../util/promise_with_resolvers';
+import {promiseWithResolvers} from '../util/promise_with_resolvers';
 
 /**
  * Schedules triggering of a defer block for `on idle` and `on timer` conditions.
@@ -549,7 +550,7 @@ function cleanupRemainingHydrationQueue(
  */
 function populateHydratingStateForQueue(registry: DehydratedBlockRegistry, queue: string[]) {
   for (let blockId of queue) {
-    registry.hydrating.set(blockId, (Promise as unknown as PromiseConstructor).withResolvers());
+    registry.hydrating.set(blockId, promiseWithResolvers<void>());
   }
 }
 

@@ -16,6 +16,7 @@ import {
   type CompilationUnit,
 } from '../compilation';
 import * as ng from '../instruction';
+import {isAriaAttribute} from '../util/attributes';
 
 /**
  * Map of target resolvers for event listeners.
@@ -24,6 +25,19 @@ const GLOBAL_TARGET_RESOLVERS = new Map<string, o.ExternalReference>([
   ['window', Identifiers.resolveWindow],
   ['document', Identifiers.resolveDocument],
   ['body', Identifiers.resolveBody],
+]);
+
+/**
+ * DOM properties that need to be remapped on the compiler side.
+ * Note: this mapping has to be kept in sync with the equally named mapping in the runtime.
+ */
+const DOM_PROPERTY_REMAPPING = new Map([
+  ['class', 'className'],
+  ['for', 'htmlFor'],
+  ['formaction', 'formAction'],
+  ['innerHtml', 'innerHTML'],
+  ['readonly', 'readOnly'],
+  ['tabindex', 'tabIndex'],
 ]);
 
 /**
@@ -244,6 +258,37 @@ function reifyCreateOperations(unit: CompilationUnit, ops: ir.OpList<ir.CreateOp
         break;
       case ir.OpKind.DeclareLet:
         ir.OpList.replace(op, ng.declareLet(op.handle.slot!, op.sourceSpan));
+        break;
+      case ir.OpKind.AnimationString:
+        ir.OpList.replace(
+          op,
+          ng.animationString(op.animationKind, op.expression, op.sanitizer, op.sourceSpan),
+        );
+        break;
+      case ir.OpKind.Animation:
+        const animationCallbackFn = reifyListenerHandler(
+          unit,
+          op.handlerFnName!,
+          op.handlerOps,
+          /* consumesDollarEvent */ false,
+        );
+        ir.OpList.replace(
+          op,
+          ng.animation(op.animationKind, animationCallbackFn, op.sanitizer, op.sourceSpan),
+        );
+        break;
+      case ir.OpKind.AnimationListener:
+        const animationListenerFn = reifyListenerHandler(
+          unit,
+          op.handlerFnName!,
+          op.handlerOps,
+          op.consumesDollarEvent,
+        );
+
+        ir.OpList.replace(
+          op,
+          ng.animationListener(op.animationKind, animationListenerFn, null, op.sourceSpan),
+        );
         break;
       case ir.OpKind.Listener:
         const listenerFn = reifyListenerHandler(
@@ -548,9 +593,11 @@ function reifyUpdateOperations(unit: CompilationUnit, ops: ir.OpList<ir.UpdateOp
       case ir.OpKind.Property:
         ir.OpList.replace(
           op,
-          unit.job.mode === TemplateCompilationMode.DomOnly && !op.isLegacyAnimationTrigger
-            ? ng.domProperty(op.name, op.expression, op.sanitizer, op.sourceSpan)
-            : ng.property(op.name, op.expression, op.sanitizer, op.sourceSpan),
+          unit.job.mode === TemplateCompilationMode.DomOnly &&
+            op.bindingKind !== ir.BindingKind.LegacyAnimation &&
+            op.bindingKind !== ir.BindingKind.Animation
+            ? reifyDomProperty(op)
+            : reifyProperty(op),
         );
         break;
       case ir.OpKind.TwoWayProperty:
@@ -593,13 +640,13 @@ function reifyUpdateOperations(unit: CompilationUnit, ops: ir.OpList<ir.UpdateOp
         if (op.expression instanceof ir.Interpolation) {
           throw new Error('not yet handled');
         } else {
-          if (op.isLegacyAnimationTrigger) {
+          if (
+            op.bindingKind === ir.BindingKind.LegacyAnimation ||
+            op.bindingKind === ir.BindingKind.Animation
+          ) {
             ir.OpList.replace(op, ng.syntheticHostProperty(op.name, op.expression, op.sourceSpan));
           } else {
-            ir.OpList.replace(
-              op,
-              ng.domProperty(op.name, op.expression, op.sanitizer, op.sourceSpan),
-            );
+            ir.OpList.replace(op, reifyDomProperty(op));
           }
         }
         break;
@@ -637,6 +684,39 @@ function reifyUpdateOperations(unit: CompilationUnit, ops: ir.OpList<ir.UpdateOp
         );
     }
   }
+}
+
+/**
+ * Reifies a DOM property binding operation.
+ *
+ * This is an optimized version of {@link reifyProperty} that avoids unnecessarily trying to bind
+ * to directive inputs at runtime for views that don't import any directives.
+ *
+ * @param op A property binding operation.
+ * @returns A statement to update the property at runtime.
+ */
+function reifyDomProperty(op: ir.DomPropertyOp | ir.PropertyOp): ir.UpdateOp {
+  return ng.domProperty(
+    DOM_PROPERTY_REMAPPING.get(op.name) ?? op.name,
+    op.expression,
+    op.sanitizer,
+    op.sourceSpan,
+  );
+}
+
+/**
+ * Reifies a property binding operation.
+ *
+ * The returned statement attempts to bind to directive inputs before falling back to a DOM
+ * property.
+ *
+ * @param op A property binding operation.
+ * @returns A statement to update the property at runtime.
+ */
+function reifyProperty(op: ir.PropertyOp): ir.UpdateOp {
+  return isAriaAttribute(op.name)
+    ? ng.ariaProperty(op.name, op.expression, op.sourceSpan)
+    : ng.property(op.name, op.expression, op.sanitizer, op.sourceSpan);
 }
 
 function reifyIrExpression(expr: o.Expression): o.Expression {

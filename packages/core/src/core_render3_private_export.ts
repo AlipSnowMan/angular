@@ -29,6 +29,7 @@ export {
   NgModuleTransitiveScopes as ɵNgModuleTransitiveScopes,
 } from './metadata/ng_module_def';
 export {getLContext as ɵgetLContext} from './render3/context_discovery';
+export {inferTagNameFromDefinition as ɵinferTagNameFromDefinition} from './render3/component_ref';
 export {
   NG_COMP_DEF as ɵNG_COMP_DEF,
   NG_DIR_DEF as ɵNG_DIR_DEF,
@@ -72,6 +73,7 @@ export {
   WizComponentDebugMetadata as ɵWizComponentDebugMetadata,
   DirectiveDebugMetadata as ɵDirectiveDebugMetadata,
   ɵɵadvance,
+  ɵɵariaProperty,
   ɵɵattribute,
   ɵɵinterpolate,
   ɵɵinterpolate1,
@@ -232,6 +234,10 @@ export {
   ɵɵreplaceMetadata,
   ɵɵgetReplaceMetadataURL,
   ɵɵattachSourceLocations,
+  ɵɵanimateEnter,
+  ɵɵanimateEnterListener,
+  ɵɵanimateLeave,
+  ɵɵanimateLeaveListener,
 } from './render3/index';
 export {CONTAINER_HEADER_OFFSET as ɵCONTAINER_HEADER_OFFSET} from './render3/interfaces/container';
 export {LContext as ɵLContext} from './render3/interfaces/context';
@@ -268,6 +274,7 @@ export {
   FrameworkAgnosticGlobalUtils as ɵFrameworkAgnosticGlobalUtils,
   GlobalDevModeUtils as ɵGlobalDevModeUtils,
 } from './render3/util/global_utils';
+export {getTransferState as ɵgetTransferState} from './render3/util/transfer_state_utils';
 export {
   ViewRef as ɵViewRef,
   isViewDirty as ɵisViewDirty,

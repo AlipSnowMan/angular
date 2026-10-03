@@ -8,16 +8,16 @@ optimize_angular_app(
     name = "bundles",
     srcs = glob(["*.ts"]) + [
         "index.html",
-        "//modules/benchmarks/src:util_lib_rjs",
+        "//modules/benchmarks/src:util_lib",
     ],
     include_zonejs = True,
     deps = [
-        "//:node_modules/rxjs",
-        "//:node_modules/tslib",
         "//modules:node_modules/@angular/build",
         "//modules:node_modules/@angular/common",
         "//modules:node_modules/@angular/core",
         "//modules:node_modules/@angular/platform-browser",
+        "//modules:node_modules/rxjs",
+        "//modules:node_modules/tslib",
         "//modules:node_modules/zone.js",
     ],
 )
@@ -41,5 +41,5 @@ http_server(
 benchmark_test(
     name = "perf",
     server = ":prodserver",
-    deps = ["//modules/benchmarks/src/ng_template_outlet_context:perf_lib_rjs"],
+    deps = ["//modules/benchmarks/src/ng_template_outlet_context:perf_lib"],
 )

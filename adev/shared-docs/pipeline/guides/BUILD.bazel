@@ -1,5 +1,4 @@
-load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
-load("//adev/shared-docs:defaults.bzl", "ts_project")
+load("//adev/shared-docs:defaults.bzl", "esbuild", "ts_project")
 
 esbuild(
     name = "guides",
@@ -22,7 +21,7 @@ esbuild(
     target = "es2022",
     visibility = ["//visibility:public"],
     deps = [
-        ":index_rjs",
+        ":index",
     ],
 )
 
@@ -45,7 +44,7 @@ esbuild(
     target = "es2022",
     visibility = ["//visibility:public"],
     deps = [
-        ":index_rjs",
+        ":index",
     ],
 )
 
@@ -54,7 +53,6 @@ ts_project(
     srcs = glob(
         [
             "**/*.mts",
-            "shiki.d.ts",
         ],
         exclude = ["index.mts"],
     ),
@@ -62,17 +60,8 @@ ts_project(
         "//adev/shared-docs:__subpackages__",
     ],
     deps = [
-        "//:node_modules/@bazel/runfiles",
-        "//:node_modules/@types/jsdom",
-        "//:node_modules/@types/node",
-        "//:node_modules/diff",
-        "//:node_modules/emoji-regex",
-        "//:node_modules/html-entities",
-        "//:node_modules/jsdom",
-        "//:node_modules/marked",
-        "//:node_modules/mermaid",
-        "//:node_modules/playwright-core",
-        "//:node_modules/shiki",
+        "//adev/shared-docs/pipeline/shared:shiki",
+        "//adev/shared-docs/pipeline/shared/marked",
     ],
 )
 
@@ -85,7 +74,9 @@ ts_project(
         "//adev/shared-docs:__subpackages__",
     ],
     deps = [
-        ":guides_lib_rjs",
-        "//:node_modules/@types/node",
+        ":guides_lib",
+        "//adev:node_modules/@types/node",
+        "//adev/shared-docs/pipeline/shared:shiki",
+        "//adev/shared-docs/pipeline/shared/marked",
     ],
 )

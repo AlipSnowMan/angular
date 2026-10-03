@@ -8,27 +8,27 @@ jobs:
   # Bazel saucelabs job resides in `manual.yml` because it's currently unstable, but
   # kept as "runnable" for debugging/stabilization effort purposes.
   bazel-saucelabs:
-    runs-on: ubuntu-latest-4core
+    runs-on: windows-latest
     env:
       JOBS: 2
     steps:
       - name: Initialize environment
-        uses: angular/dev-infra/github-actions/npm/checkout-and-setup-node@dfe138678e4edb4789fbe40ae7792c046de3b4bd
+        uses: angular/dev-infra/github-actions/npm/checkout-and-setup-node@b7672ff60456719e6d9b0cc052abc73a7adc8df2
         with:
-          cache-node-modules: true
+          cache-node-modules: false
       - name: Install node modules
-        run: yarn install --frozen-lockfile
-      - name: Setup Bazel
-        uses: angular/dev-infra/github-actions/bazel/setup@dfe138678e4edb4789fbe40ae7792c046de3b4bd
+        run: pnpm install --frozen-lockfile
+      - name: Setup Base
+        uses: angular/dev-infra/github-actions/bazel/setup@b7672ff60456719e6d9b0cc052abc73a7adc8df2
       - name: Setup Bazel Remote Caching
-        uses: angular/dev-infra/github-actions/bazel/configure-remote@dfe138678e4edb4789fbe40ae7792c046de3b4bd
+        uses: angular/dev-infra/github-actions/bazel/configure-remote@b7672ff60456719e6d9b0cc052abc73a7adc8df2
       - name: Setup Saucelabs Variables
-        uses: angular/dev-infra/github-actions/saucelabs@dfe138678e4edb4789fbe40ae7792c046de3b4bd
+        uses: angular/dev-infra/github-actions/saucelabs@b7672ff60456719e6d9b0cc052abc73a7adc8df2
       - name: Set up Sauce Tunnel Daemon
-        run: yarn bazel run //tools/saucelabs-daemon/background-service -- $JOBS &
+        run: pnpm bazel run //tools/saucelabs-daemon/background-service -- $JOBS &
         env:
           SAUCE_TUNNEL_IDENTIFIER: angular-framework-${{ github.run_number }}
       - name: Run all saucelabs bazel tests
         run: |
           TESTS=$(./node_modules/.bin/bazelisk query --output label '(kind(karma_web_test, ...) intersect attr("tags", "saucelabs", ...)) except attr("tags", "fixme-saucelabs", ...)')
-          yarn bazel test --config=saucelabs --jobs=$JOBS ${TESTS}
+          pnpm bazel test --config=saucelabs --jobs=$JOBS ${TESTS}

@@ -45,7 +45,7 @@ function writeTsconfig(
         compilerOptions: {
           strict: true,
           experimentalDecorators: true,
-          moduleResolution: 'node',
+          moduleResolution: 'bundler',
           target: 'es2015',
           rootDir: '.',
           lib: ['dom', 'es2015'],
@@ -173,6 +173,13 @@ export class Project {
     }
 
     diagnostics.push(...this.ngLS.getSemanticDiagnostics(fileName));
+    return diagnostics;
+  }
+
+  getSuggestionDiagnosticsForFile(projectFileName: string): ts.Diagnostic[] {
+    const fileName = absoluteFrom(`/${this.name}/${projectFileName}`);
+    const diagnostics: ts.Diagnostic[] = [];
+    diagnostics.push(...this.ngLS.getSuggestionDiagnostics(fileName));
     return diagnostics;
   }
 

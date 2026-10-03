@@ -21,7 +21,10 @@ import {
 } from '../render3/debug/injector_profiler';
 import {FactoryFn, getFactoryDef} from '../render3/definition_factory';
 import {
-  throwCyclicDependencyError,
+  augmentRuntimeError,
+  cyclicDependencyError,
+  getRuntimeErrorCode,
+  prependTokenToDependencyPath,
   throwInvalidProviderError,
   throwMixedMultiProviderError,
 } from '../render3/errors_di';
@@ -37,10 +40,8 @@ import {InjectionToken} from './injection_token';
 import type {Injector} from './injector';
 import {
   BackwardsCompatibleInjector,
-  catchInjectorError,
   convertToBitFlags,
   injectArgs,
-  NG_TEMP_TOKEN_PATH,
   setCurrentInjector,
   THROW_IF_NOT_FOUND,
   ɵɵinject,
@@ -78,7 +79,6 @@ import {setActiveConsumer} from '@angular/core/primitives/signals';
 import {
   Injector as PrimitivesInjector,
   InjectionToken as PrimitivesInjectionToken,
-  NOT_FOUND,
   NotFound,
   isNotFound,
 } from '@angular/core/primitives/di';
@@ -379,20 +379,38 @@ export class R3Injector extends EnvironmentInjector implements PrimitivesInjecto
           ? null
           : notFoundValue;
       return nextInjector.get(token, notFoundValue);
-    } catch (e: any) {
-      if (isNotFound(e)) {
-        // @ts-ignore
-        const path: any[] = (e[NG_TEMP_TOKEN_PATH] = e[NG_TEMP_TOKEN_PATH] || []);
-        path.unshift(stringify(token));
-        if (previousInjector) {
-          // We still have a parent injector, keep throwing
-          throw e;
+    } catch (error: any) {
+      // If there was a cyclic dependency error or a token was not found,
+      // an error is thrown at the level where the problem was detected.
+      // The error propagates up the call stack and the code below appends
+      // the current token into the path. As a result, the full path is assembled
+      // at the very top of the call stack, so the final error message can be
+      // formatted to include that path.
+      const errorCode = getRuntimeErrorCode(error);
+      if (
+        errorCode === RuntimeErrorCode.CYCLIC_DI_DEPENDENCY ||
+        errorCode === RuntimeErrorCode.PROVIDER_NOT_FOUND
+      ) {
+        // Note: we use `if (ngDevMode) { ... }` instead of an early return.
+        // ESBuild is conservative about removing dead code that follows `return;`
+        // inside a function body, so the block may remain in the bundle.
+        // Using a conditional ensures the dev-only logic is reliably tree-shaken
+        // in production builds.
+        if (ngDevMode) {
+          prependTokenToDependencyPath(error, token);
+
+          if (previousInjector) {
+            // We still have a parent injector, keep throwing
+            throw error;
+          } else {
+            // Format & throw the final error message when we don't have any previous injector
+            throw augmentRuntimeError(error, this.source);
+          }
         } else {
-          // Format & throw the final error message when we don't have any previous injector
-          return catchInjectorError(e, token, 'R3InjectorError', this.source);
+          throw new RuntimeError(errorCode, null);
         }
       } else {
-        throw e;
+        throw error;
       }
     } finally {
       // Lastly, restore the previous injection context.
@@ -501,7 +519,7 @@ export class R3Injector extends EnvironmentInjector implements PrimitivesInjecto
     const prevConsumer = setActiveConsumer(null);
     try {
       if (record.value === CIRCULAR) {
-        throwCyclicDependencyError(stringify(token));
+        throw cyclicDependencyError(stringify(token));
       } else if (record.value === NOT_YET) {
         record.value = CIRCULAR;
 

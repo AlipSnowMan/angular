@@ -582,6 +582,14 @@ export function i18nAttributes(slot: number, i18nAttributesConfig: number): ir.C
   return call(Identifiers.i18nAttributes, args, null);
 }
 
+export function ariaProperty(
+  name: string,
+  expression: o.Expression | ir.Interpolation,
+  sourceSpan: ParseSourceSpan,
+): ir.UpdateOp {
+  return propertyBase(Identifiers.ariaProperty, name, expression, null, sourceSpan);
+}
+
 export function property(
   name: string,
   expression: o.Expression | ir.Interpolation,
@@ -832,6 +840,62 @@ export function domProperty(
   sourceSpan: ParseSourceSpan,
 ): ir.UpdateOp {
   return propertyBase(Identifiers.domProperty, name, expression, sanitizer, sourceSpan);
+}
+
+export function animation(
+  animationKind: ir.AnimationKind,
+  handlerFn: o.Expression,
+  sanitizer: o.Expression | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const args = [handlerFn];
+  if (sanitizer !== null) {
+    args.push(sanitizer);
+  }
+  const identifier =
+    animationKind === ir.AnimationKind.ENTER
+      ? Identifiers.animationEnter
+      : Identifiers.animationLeave;
+  return call(identifier, args, sourceSpan);
+}
+
+export function animationString(
+  animationKind: ir.AnimationKind,
+  expression: o.Expression | ir.Interpolation,
+  sanitizer: o.Expression | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const value =
+    expression instanceof ir.Interpolation
+      ? interpolationToExpression(expression, sourceSpan)
+      : expression;
+  const args = [value];
+  if (sanitizer !== null) {
+    args.push(sanitizer);
+  }
+  const identifier =
+    animationKind === ir.AnimationKind.ENTER
+      ? Identifiers.animationEnter
+      : Identifiers.animationLeave;
+  return call(identifier, args, sourceSpan);
+}
+
+export function animationListener(
+  animationKind: ir.AnimationKind,
+  handlerFn: o.Expression,
+  eventTargetResolver: o.ExternalReference | null,
+  sourceSpan: ParseSourceSpan,
+): ir.CreateOp {
+  const args = [handlerFn];
+  if (eventTargetResolver !== null) {
+    args.push(o.importExpr(eventTargetResolver));
+  }
+  const identifier =
+    animationKind === ir.AnimationKind.ENTER
+      ? Identifiers.animationEnterListener
+      : Identifiers.animationLeaveListener;
+
+  return call(identifier, args, sourceSpan);
 }
 
 export function syntheticHostProperty(
